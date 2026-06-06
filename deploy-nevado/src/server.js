@@ -4,6 +4,7 @@ const express  = require('express');
 const session  = require('express-session');
 const path     = require('path');
 const fs       = require('fs');
+const bcrypt   = require('bcryptjs');
 const db       = require('./database');
 
 const app = express();
@@ -32,8 +33,20 @@ app.get('*', (req, res) =>
 
 const PORT = process.env.PORT || 3000;
 
-// Inicializa banco antes de subir o servidor
-db.init().then(() => {
+async function ensureAdmin() {
+  const adminEmail = 'admin@chocolatesnevado.com.br';
+  const adminPass  = 'admin123';
+  const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
+  if (!exists) {
+    const hash = bcrypt.hashSync(adminPass, 10);
+    db.prepare(`INSERT INTO users (name, email, password, role, color, goal) VALUES (?, ?, ?, 'admin', '#C8102E', 999999)`)
+      .run('Administrador', adminEmail, hash);
+    console.log('✅  Admin criado automaticamente');
+  }
+}
+
+db.init().then(async () => {
+  await ensureAdmin();
   app.listen(PORT, () => {
     console.log('\n🍫  Valle Nevado — Sistema de Propostas');
     console.log(`🚀  Rodando em: http://localhost:${PORT}`);
