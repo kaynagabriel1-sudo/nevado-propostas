@@ -63,7 +63,43 @@ A Valle Nevado Chocolates e seus colaboradores se comprometem com o comportament
 Foro:
 Fica eleito pelas partes de forma irrevogável e irretratável o foro da Comarca de Porto Feliz/SP, para dirimir qualquer dúvida ou litígio oriundo deste contrato, renunciando, expressamente, a qualquer outro, mais privilegiado que seja.`;
 
-function generateProposalPDF(proposal, seller, res) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Medidas da página A4 com margem 45:
+//   largura útil = 595 - 45 - 45 = 505px
+//   colX começa em 45, limite direito em 550
+// ─────────────────────────────────────────────────────────────────────────────
+
+// COLUNAS DA TABELA DE ITENS
+// [Item, Cód., Descrição, Qtd., Preço Unit., Total]
+// Soma das larguras = 25+65+215+45+75+80 = 505  ✓ (exatamente a largura útil)
+const COL_W = [25,  65,  215, 45,  75,  80];
+const COL_X = [45,  72,  139, 356, 403, 480];
+const HEADERS = ['Item', 'Cód.', 'Descrição', 'Qtd.', 'Preço Unit.', 'Total'];
+
+// X do limite direito da última coluna = 480 + 80 = 560 → dentro da margem (550 + tolerância pdfkit)
+// Para segurança usamos 478 + 77 = 555, abaixo de 550.
+// Reajuste fino:
+const COL_X_SAFE = [45, 71, 137, 352, 399, 472];
+const COL_W_SAFE = [24, 64, 213, 45,  72,  77];
+
+function drawFooter(doc, address, phone, emailCom, site) {
+  const footerY = doc.page.height - 35;
+  doc.moveTo(45, footerY).lineTo(doc.page.width - 45, footerY)
+     .strokeColor('#D1D5DB').lineWidth(0.3).stroke();
+  doc.fillColor('#999').font('Helvetica').fontSize(7)
+     .text(
+       `Valle Nevado Chocolates – ${address} | Tel: ${phone} | ${emailCom} | ${site}`,
+       45, footerY + 6, { width: doc.page.width - 90, align: 'center' }
+     );
+}
+
+/**
+ * @param {object}  proposal           - dados da proposta
+ * @param {object}  seller             - dados do vendedor
+ * @param {object}  res                - response HTTP
+ * @param {boolean} [includeConditions=true] - incluir página de Condições Gerais de Vendas
+ */
+function generateProposalPDF(proposal, seller, res, includeConditions = true) {
   const company  = 'Nevado Ind. Imp. e Exp. de Alimentos Ltda - EPP';
   const cnpj     = '06.180.906/0001-11';
   const address  = 'Rodovia Marechal Rondon SP300 KM 135,5 – Canguera – Porto Feliz/SP – CEP 18540-850';
@@ -71,14 +107,13 @@ function generateProposalPDF(proposal, seller, res) {
   const site     = 'www.chocolatesnevado.com.br';
   const emailCom = 'comercial@chocolatesnevado.com.br';
 
-  const items    = JSON.parse(proposal.items || '[]');
-  const extra    = (() => { try { return JSON.parse(proposal.extra || '{}'); } catch(e){ return {}; } })();
+  const items = JSON.parse(proposal.items || '[]');
+  const extra = (() => { try { return JSON.parse(proposal.extra || '{}'); } catch(e){ return {}; } })();
 
   const R_DARK   = '#1a2e5a';
   const R_RED    = '#C8102E';
-  const R_YELLOW = '#FFD700';
 
-  const doc = new PDFDocument({ margin: 45, size: 'A4' });
+  const doc = new PDFDocument({ margin: 45, size: 'A4', bufferPages: true });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename=proposta-${proposal.id}.pdf`);
   doc.pipe(res);
@@ -87,7 +122,6 @@ function generateProposalPDF(proposal, seller, res) {
   const logoBuffer = Buffer.from(LOGO_B64, 'base64');
   doc.image(logoBuffer, 45, 20, { height: 55 });
 
-  // Dados empresa (direita)
   doc.fillColor(R_DARK).font('Helvetica-Bold').fontSize(8)
      .text(company, 280, 22, { width: 270, align: 'right' });
   doc.fillColor('#555').font('Helvetica').fontSize(7.5)
@@ -96,14 +130,12 @@ function generateProposalPDF(proposal, seller, res) {
      .text(`Tel: ${phone}  |  ${site}`, 280, 53, { width: 270, align: 'right' })
      .text(emailCom, 280, 63, { width: 270, align: 'right' });
 
-  // Linha separadora
   doc.moveTo(45, 82).lineTo(doc.page.width - 45, 82).strokeColor('#D1D5DB').lineWidth(0.5).stroke();
 
   // ── PARA / DE ────────────────────────────────────────────────
   let y = 92;
   const col1 = 45, col2 = 320;
 
-  doc.fillColor('#333').font('Helvetica').fontSize(8);
   const paraData = [
     ['Para:', proposal.client_name],
     ['Atenção:', extra.atencao || '—'],
@@ -141,19 +173,17 @@ function generateProposalPDF(proposal, seller, res) {
 
   // ── TABELA DE ITENS ──────────────────────────────────────────
   y += 36;
-  const colW = [20, 300, 50, 70, 80];
-  const colX = [45, 68, 368, 420, 492];
-  const headers = ['Item', 'Descrição', 'Qtd.', 'Preço Unit.', 'Total'];
 
   // Cabeçalho tabela
   doc.rect(45, y, doc.page.width - 90, 16).fill(R_DARK);
   doc.fillColor('#fff').font('Helvetica-Bold').fontSize(8);
-  headers.forEach((h, i) => {
-    doc.text(h, colX[i], y + 4, { width: colW[i], align: i > 1 ? 'right' : 'left' });
+  HEADERS.forEach((h, i) => {
+    const align = i >= 3 ? 'right' : 'left';
+    doc.text(h, COL_X_SAFE[i], y + 4, { width: COL_W_SAFE[i], align });
   });
   y += 16;
 
-  // Linhas
+  // Linhas de itens
   let runTotal = 0;
   items.forEach((item, idx) => {
     const sub = item.qty * item.price;
@@ -163,19 +193,35 @@ function generateProposalPDF(proposal, seller, res) {
     doc.rect(45, y, doc.page.width - 90, rowH).fill(bg);
     doc.rect(45, y, doc.page.width - 90, rowH).stroke('#E5E7EB');
     doc.fillColor('#222').font('Helvetica').fontSize(8)
-       .text(String(idx + 1), colX[0], y + 4, { width: colW[0] })
-       .text(item.desc, colX[1], y + 4, { width: colW[1] })
-       .text(String(item.qty), colX[2], y + 4, { width: colW[2], align: 'right' })
-       .text(`R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, colX[3], y + 4, { width: colW[3], align: 'right' })
-       .text(`R$ ${sub.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, colX[4], y + 4, { width: colW[4], align: 'right' });
+       // Nº do item
+       .text(String(idx + 1), COL_X_SAFE[0], y + 4, { width: COL_W_SAFE[0], align: 'left' })
+       // Código do produto (NOVO)
+       .text(item.code || '—', COL_X_SAFE[1], y + 4, { width: COL_W_SAFE[1], align: 'left' })
+       // Descrição
+       .text(item.desc || '—', COL_X_SAFE[2], y + 4, { width: COL_W_SAFE[2], align: 'left' })
+       // Qtd.
+       .text(String(item.qty), COL_X_SAFE[3], y + 4, { width: COL_W_SAFE[3], align: 'right' })
+       // Preço Unit.
+       .text(
+         `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+         COL_X_SAFE[4], y + 4, { width: COL_W_SAFE[4], align: 'right' }
+       )
+       // Total  ← FIX: estava sendo cortado, agora COL_X_SAFE[5]+COL_W_SAFE[5] = 549 ≤ 550
+       .text(
+         `R$ ${sub.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+         COL_X_SAFE[5], y + 4, { width: COL_W_SAFE[5], align: 'right' }
+       );
     y += rowH;
   });
 
-  // Total
+  // Linha de total  ← FIX: mesmo ajuste de coluna
   doc.rect(45, y, doc.page.width - 90, 20).fill(R_RED);
   doc.fillColor('#fff').font('Helvetica-Bold').fontSize(9)
-     .text('PREÇO TOTAL:', colX[1], y + 5, { width: 250 })
-     .text(`R$ ${runTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, colX[4], y + 5, { width: colW[4], align: 'right' });
+     .text('PREÇO TOTAL:', COL_X_SAFE[2], y + 5, { width: COL_W_SAFE[2] + COL_W_SAFE[3] + COL_W_SAFE[4], align: 'left' })
+     .text(
+       `R$ ${runTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+       COL_X_SAFE[5], y + 5, { width: COL_W_SAFE[5], align: 'right' }
+     );
   y += 28;
 
   // ── CONDIÇÕES COMERCIAIS ─────────────────────────────────────
@@ -194,11 +240,21 @@ function generateProposalPDF(proposal, seller, res) {
     ['Valor mínimo:', extra.valor_minimo || '—'],
   ];
 
-  doc.font('Helvetica').fontSize(8);
+  // FIX: calcular altura real de cada linha para evitar sobreposição
+  const labelW = 130;
+  const valueX = 180;
+  const valueW = doc.page.width - 45 - valueX; // 550 - 180 = 370
+
   comerciais.forEach(([label, value]) => {
-    doc.fillColor('#333').font('Helvetica-Bold').text(label, 45, y, { width: 130, continued: false });
-    doc.fillColor('#333').font('Helvetica').text(value, 180, y, { width: 375 });
-    y += 13;
+    const valueHeight = doc.heightOfString(value, { width: valueW, fontSize: 8 });
+    const rowH = Math.max(13, valueHeight + 4);
+
+    doc.fillColor('#333').font('Helvetica-Bold').fontSize(8)
+       .text(label, 45, y, { width: labelW });
+    doc.fillColor('#333').font('Helvetica').fontSize(8)
+       .text(value, valueX, y, { width: valueW });
+
+    y += rowH;
   });
 
   // Observações
@@ -206,47 +262,52 @@ function generateProposalPDF(proposal, seller, res) {
     y += 4;
     doc.fillColor(R_DARK).font('Helvetica-Bold').fontSize(9).text('OBSERVAÇÕES:', 45, y);
     y += 12;
-    doc.fillColor('#333').font('Helvetica').fontSize(8).text(proposal.notes, 45, y, { width: doc.page.width - 90 });
+    doc.fillColor('#333').font('Helvetica').fontSize(8)
+       .text(proposal.notes, 45, y, { width: doc.page.width - 90 });
     y += doc.heightOfString(proposal.notes, { width: doc.page.width - 90 }) + 8;
   }
 
-  // ── CONDIÇÕES GERAIS (nova página) ───────────────────────────
-  doc.addPage();
-  doc.fillColor(R_DARK).font('Helvetica-Bold').fontSize(10)
-     .text('CONDIÇÕES GERAIS DE VENDAS', 45, 45, { align: 'center', width: doc.page.width - 90 });
-  doc.moveTo(45, 62).lineTo(doc.page.width - 45, 62).strokeColor('#D1D5DB').lineWidth(0.5).stroke();
+  // ── CONDIÇÕES GERAIS (nova página — opcional) ────────────────
+  if (includeConditions) {
+    doc.addPage();
+    doc.fillColor(R_DARK).font('Helvetica-Bold').fontSize(10)
+       .text('CONDIÇÕES GERAIS DE VENDAS', 45, 45, { align: 'center', width: doc.page.width - 90 });
+    doc.moveTo(45, 62).lineTo(doc.page.width - 45, 62).strokeColor('#D1D5DB').lineWidth(0.5).stroke();
 
-  // Divide o texto em seções
-  const sections = CONDITIONS.split('\n\n').filter(s => s.trim());
-  let cy = 70;
-  sections.forEach(section => {
-    const lines = section.split('\n');
-    const title = lines[0];
-    const body  = lines.slice(1).join('\n');
+    const sections = CONDITIONS.split('\n\n').filter(s => s.trim());
+    let cy = 70;
+    sections.forEach(section => {
+      const lines = section.split('\n');
+      const title = lines[0];
+      const body  = lines.slice(1).join('\n');
 
-    if (cy > doc.page.height - 80) { doc.addPage(); cy = 45; }
+      if (title === 'CONDIÇÕES GERAIS DE VENDAS') return;
 
-    if (title === 'CONDIÇÕES GERAIS DE VENDAS') return; // já no cabeçalho
+      if (cy > doc.page.height - 80) { doc.addPage(); cy = 45; }
 
-    doc.fillColor(R_DARK).font('Helvetica-Bold').fontSize(8).text(title, 45, cy, { width: doc.page.width - 90 });
-    cy += 12;
+      doc.fillColor(R_DARK).font('Helvetica-Bold').fontSize(8)
+         .text(title, 45, cy, { width: doc.page.width - 90 });
+      cy += 12;
 
-    if (body) {
-      doc.fillColor('#333').font('Helvetica').fontSize(7.5)
-         .text(body, 45, cy, { width: doc.page.width - 90, align: 'justify' });
-      cy += doc.heightOfString(body, { width: doc.page.width - 90, fontSize: 7.5 }) + 8;
-    }
-  });
+      if (body) {
+        const bh = doc.heightOfString(body, { width: doc.page.width - 90, fontSize: 7.5 });
+        if (cy + bh > doc.page.height - 80) { doc.addPage(); cy = 45; }
+        doc.fillColor('#333').font('Helvetica').fontSize(7.5)
+           .text(body, 45, cy, { width: doc.page.width - 90, align: 'justify' });
+        cy += bh + 8;
+      }
+    });
 
-  // ── FOOTER em todas as páginas ───────────────────────────────
-  const pages = doc.bufferedPageRange ? doc.bufferedPageRange() : { count: 1 };
-  const footerY = doc.page.height - 35;
-  doc.moveTo(45, footerY).lineTo(doc.page.width - 45, footerY).strokeColor('#D1D5DB').lineWidth(0.3).stroke();
-  doc.fillColor('#999').font('Helvetica').fontSize(7)
-     .text(
-       `Valle Nevado Chocolates – ${address} | Tel: ${phone} | ${emailCom} | ${site}`,
-       45, footerY + 6, { width: doc.page.width - 90, align: 'center' }
-     );
+    drawFooter(doc, address, phone, emailCom, site);
+  }
+
+  // ── FOOTER página 1 ─────────────────────────────────────────
+  const range = doc.bufferedPageRange();
+  // Aplica footer em todas as páginas
+  for (let i = range.start; i < range.start + range.count; i++) {
+    doc.switchToPage(i);
+    drawFooter(doc, address, phone, emailCom, site);
+  }
 
   doc.end();
 }
