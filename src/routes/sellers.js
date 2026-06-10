@@ -5,27 +5,26 @@ const db      = require('../database');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const router  = express.Router();
 
-// Listar vendedores — admin vê todos, vendedor vê só ele mesmo
-router.get('/', requireAuth, (req, res) => {
-  if (req.session.userRole === 'admin') {
-    const sellers = db.prepare("SELECT id, name, email, role, color, goal, active, created_at FROM users WHERE role = 'seller' AND active = 1").all();
-    return res.json(sellers);
-  }
-  // vendedor só vê a si mesmo
-  const me = db.prepare('SELECT id, name, email, role, color, goal FROM users WHERE id = ?').get(req.session.userId);
-  res.json(me ? [me] : []);
+router.get('/', requireAuth, async (req, res) => {
+  try {
+    if (req.session.userRole === 'admin') {
+      const sellers = await db.prepare("SELECT id, name, email, role, color, goal, active, created_at FROM users WHERE role = 'seller' AND active = 1").all();
+      return res.json(sellers);
+    }
+    const me = await db.prepare('SELECT id, name, email, role, color, goal FROM users WHERE id = $1').get(req.session.userId);
+    res.json(me ? [me] : []);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Criar vendedor — SOMENTE ADMIN
-router.post('/', requireAdmin, (req, res) => {
-  const { name, email, password, color, goal } = req.body;
-  if (!name || !email || !password)
-    return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
-  if (password.length < 6)
-    return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
-  const hash = bcrypt.hashSync(password, 10);
+router.post('/', requireAdmin, async (req, res) => {
   try {
-    const info = db.prepare('INSERT INTO users (name, email, password, role, color, goal) VALUES (?, ?, ?, ?, ?, ?)')
+    const { name, email, password, color, goal } = req.body;
+    if (!name || !email || !password)
+      return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
+    if (password.length < 6)
+      return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
+    const hash = bcrypt.hashSync(password, 10);
+    const info = await db.prepare('INSERT INTO users (name, email, password, role, color, goal) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id')
       .run(name, email, hash, 'seller', color || '#C8102E', goal || 40000);
     res.status(201).json({ id: info.lastInsertRowid });
   } catch(e) {
@@ -33,28 +32,31 @@ router.post('/', requireAdmin, (req, res) => {
   }
 });
 
-// Editar vendedor — SOMENTE ADMIN
-router.put('/:id', requireAdmin, (req, res) => {
-  const { name, email, color, goal } = req.body;
-  db.prepare('UPDATE users SET name=?, email=?, color=?, goal=? WHERE id=?')
-    .run(name, email, color, goal, req.params.id);
-  res.json({ ok: true });
+router.put('/:id', requireAdmin, async (req, res) => {
+  try {
+    const { name, email, color, goal } = req.body;
+    await db.prepare('UPDATE users SET name=$1, email=$2, color=$3, goal=$4 WHERE id=$5')
+      .run(name, email, color, goal, req.params.id);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Resetar senha de vendedor — SOMENTE ADMIN
-router.post('/:id/reset-password', requireAdmin, (req, res) => {
-  const { password } = req.body;
-  if (!password || password.length < 6)
-    return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres.' });
-  const hash = bcrypt.hashSync(password, 10);
-  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, req.params.id);
-  res.json({ ok: true });
+router.post('/:id/reset-password', requireAdmin, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 6)
+      return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres.' });
+    const hash = bcrypt.hashSync(password, 10);
+    await db.prepare('UPDATE users SET password = $1 WHERE id = $2').run(hash, req.params.id);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Desativar/excluir vendedor — SOMENTE ADMIN
-router.delete('/:id', requireAdmin, (req, res) => {
-  db.prepare('UPDATE users SET active = 0 WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+router.delete('/:id', requireAdmin, async (req, res) => {
+  try {
+    await db.prepare('UPDATE users SET active = 0 WHERE id = $1').run(req.params.id);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 module.exports = router;
