@@ -308,7 +308,7 @@ textarea.finput{resize:vertical;min-height:60px}
             <div class="fsec">
               <div class="sec-title"><i class="ti ti-package"></i> Produtos / Serviços</div>
               <div class="items-wrap">
-                <div class="iheader"><span>Cód.</span><span>Descrição</span><span>Qtd</span><span>Preço unit.</span><span>Total</span><span></s
+                <div class="iheader"><span>Cód.</span><span>Descrição</span><span>Qtd</span><span>Preço unit.</span><span>Total</span><span></span></div>
                 <div id="items-body"></div>
                 <div style="padding:6px 8px;border-top:1px solid #F3F4F6"><button class="add-row" onclick="addRow()"><i class="ti ti-plus" style="font-size:12px"></i> Adicionar item</button></div>
               </div>
@@ -753,7 +753,7 @@ async function doSend(){
   }
   const extra=getFormExtra();
   try{
-    const includeConditions=document.getElementById('nc-conditions')?.checked!==false;').value,extra:JSON.stringify(extra),...extra});
+    const includeConditions=document.getElementById('nc-conditions')?.checked!==false;
     proposals=await api('/api/proposals');
     showToast('✅ Proposta enviada para '+client_email+'!');
     nav('propostas',null);
@@ -770,7 +770,7 @@ async function doSave(){
     items.push({code:ins[0].value||'',desc:ins[1].value||'Item',qty:parseFloat(ins[2].value)||1,price:parseFloat(ins[3].value)||0})
   });
   try{
-    const includeConditions=document.getElementById('nc-conditions')?.checked!==false;yId('nc-obs').value});
+    const includeConditions=document.getElementById('nc-conditions')?.checked!==false;
     proposals=await api('/api/proposals');
     showToast('📁 Rascunho salvo! ('+res.id+')');
     document.getElementById('pdf-link').href='/api/proposals/'+res.id+'/pdf';
