@@ -37,7 +37,25 @@ const SCHEMA = `
     extra TEXT DEFAULT '{}',
     created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
   );
-  CREATE TABLE IF NOT EXISTS email_logs (
+  CREATE TABLE IF NOT EXISTS clients (
+    id SERIAL PRIMARY KEY,
+    code TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    company TEXT,
+    cpf_cnpj TEXT,
+    state_registration TEXT,
+    tax_regime TEXT,
+    cep TEXT,
+    street TEXT,
+    number TEXT,
+    neighborhood TEXT,
+    city TEXT,
+    state TEXT,
+    created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+  );
+CREATE TABLE IF NOT EXISTS email_logs (
     id SERIAL PRIMARY KEY,
     proposal_id TEXT,
     to_email TEXT,

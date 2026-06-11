@@ -22,6 +22,7 @@ app.use('/api/auth',      require('./routes/auth'));
 app.use('/api/proposals', require('./routes/proposals'));
 app.use('/api/sellers',   require('./routes/sellers'));
 app.use('/api/reports',   require('./routes/reports'));
+app.use('/api/clients',   require('./routes/clients'));
 
 app.get('/login', (req, res) =>
   res.sendFile(path.join(__dirname, '.
