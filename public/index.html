@@ -297,7 +297,7 @@ textarea.finput{resize:vertical;min-height:60px}
             <div class="fsec">
               <div class="sec-title"><i class="ti ti-user"></i> Dados do cliente (destinatário)
               <div class="fgrid">
-                <div class="fg full"><label class="flabel">Buscar cliente cadastrado</label><div style="display:flex;gap:6px"><input class="finidora ABC Ltda" oninput="pvu()">
+                <div class="fg full"><label class="flabel">Nome / Razão Social *</label><input class="finput" id="nc-name" placeholder="Ex: Distribuidora ABC Ltda" oninput="pvu()">
                 <div class="fg"><label class="flabel">CNPJ do cliente</label><input class="finput" id="nc-cnpj" placeholder="00.000.000/0001-00" oninput="pvu()">
                 <div class="fg"><label class="flabel">E-mail *</label><input class="finput" type="email" id="nc-email" placeholder="cliente@empresa.com" oninput="pvu()">
                 <div class="fg"><label class="flabel">Telefone</label><input class="finput" id="nc-tel" placeholder="(00) 00000-0000" oninput="pvu()">
@@ -757,7 +757,7 @@ function pvu(){
   const rows=[];
   document.querySelectorAll('.irow').forEach(r=>{
     const ins=r.querySelectorAll('input');
-    const code=ins[0]?.value; const desc=ins[1]?.value; const qty=parseFloat(ins[2]?.value)||0; const price=parseFloat(ins[3]?.valu
+    const code=ins[0]?.value; const desc=ins[1]?.value; const qty=parseFloat(ins[2]?.value)||0; const price=parseFloat(ins[3]?.value)||0;
     if(desc&&(qty||price)) rows.push({desc,qty,price});
   });
   document.getElementById('pv-items').innerHTML=rows.length
