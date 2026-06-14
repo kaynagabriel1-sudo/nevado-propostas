@@ -400,6 +400,11 @@ textarea.finput{resize:vertical;min-height:60px}
               <div style="display:flex;gap:7px">
                 <button class="btn btn-sm" style="flex:1;justify-content:center" onclick="doSave()"><i class="ti ti-device-floppy" style="font-size:11px"></i> Salvar rascunho</button>
                 <a href="#" id="pdf-link" style="flex:1;text-decoration:none"><button class="btn btn-sm btn-outline" style="width:100%;justify-content:center"><i class="ti ti-download" style="font-size:11px"></i> Baixar PDF</button></a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- VENDEDORES -->
       <div class="page admin-only-page" id="p-vendedores">
@@ -791,8 +796,20 @@ async function doSend(){
     };
   }
   const extra=getFormExtra();
+  const seller_id=document.getElementById('nc-seller')?.value||'';
   try{
-    const includeConditions=document.getElementById('nc-conditions')?.checked!==false;
+    const res=await api('/api/proposals','POST',{
+      client_name,client_email,
+      client_cnpj:extra.client_cnpj,
+      client_tel:extra.client_tel,
+      client_cidade:extra.client_cidade,
+      pagto:extra.pagto,
+      prazo:extra.prazo,
+      seller_id,
+      validity:document.getElementById('nc-validity').value,
+      notes:document.getElementById('nc-obs').value,
+      items,extra,send:true
+    });
     proposals=await api('/api/proposals');
     showToast('✅ Proposta enviada para '+client_email+'!');
     nav('propostas',null);
@@ -808,8 +825,20 @@ async function doSave(){
     const ins=r.querySelectorAll('input');
     items.push({code:ins[0].value||'',desc:ins[1].value||'Item',qty:parseFloat(ins[2].value)||1,price:parseFloat(ins[3].value)||0})
   });
+  const seller_id=document.getElementById('nc-seller')?.value||'';
   try{
-    const includeConditions=document.getElementById('nc-conditions')?.checked!==false;
+    const res=await api('/api/proposals','POST',{
+      client_name,client_email:document.getElementById('nc-email').value,
+      client_cnpj:document.getElementById('nc-cnpj').value,
+      client_tel:document.getElementById('nc-tel').value,
+      client_cidade:document.getElementById('nc-cidade').value,
+      pagto:document.getElementById('nc-pagto').value,
+      prazo:document.getElementById('nc-prazo').value,
+      seller_id,
+      validity:document.getElementById('nc-validity').value,
+      notes:document.getElementById('nc-obs').value,
+      items,send:false
+    });
     proposals=await api('/api/proposals');
     showToast('📁 Rascunho salvo! ('+res.id+')');
     document.getElementById('pdf-link').href='/api/proposals/'+res.id+'/pdf';
