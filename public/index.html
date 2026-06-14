@@ -407,6 +407,22 @@ textarea.finput{resize:vertical;min-height:60px}
         
       
 
+      <!-- CLIENTES -->
+      <div class="page" id="p-clientes">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+          <button class="btn btn-primary" onclick="openAddClient()"><i class="ti ti-user-plus" style="font-size:12px"></i> Novo Cliente</button>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Clientes cadastrados</span>
+            <div class="card-actions">
+              <div class="sbox"><i class="ti ti-search"></i><input placeholder="Buscar cliente..." oninput="filterClients(this.value)"></div>
+            </div>
+          </div>
+          <div id="client-list"></div>
+        </div>
+      </div>
+
       <!-- VENDEDORES -->
       <div class="page admin-only-page" id="p-vendedores">
         <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
