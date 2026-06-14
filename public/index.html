@@ -220,9 +220,10 @@ textarea.finput{resize:vertical;min-height:60px}
       <div class="sb-item" onclick="nav('propostas',this)"><i class="ti ti-file-text"></i> Propostas <span class="sb-badge" id="bdg" style="display:none">0</span>
       <div class="sb-item" onclick="nav('nova',this)"><i class="ti ti-plus"></i> Nova Proposta
       <div class="sb-item" onclick="nav('clientes',this)"><i class="ti ti-address-book"></i> Clientes
+      <div class="sb-item" onclick="nav('clientes',this)"><i class="ti ti-address-book"></i> Clientes
       <div class="sb-sec admin-only">Gestão
       <div class="sb-item admin-only" onclick="nav('vendedores',this)"><i class="ti ti-users"></i> Vendedores
-      <!-- removido -->,this)"><i class="ti ti-address-book"></i> Clientes
+      <i class="ti ti-address-book"></i> Clientes
       <div class="sb-item" onclick="nav('relatorios',this)"><i class="ti ti-chart-bar"></i> Relatórios
       <div class="sb-sec">Config.
       <div class="sb-item" onclick="nav('config',this)"><i class="ti ti-settings"></i> Configurações
@@ -401,11 +402,6 @@ textarea.finput{resize:vertical;min-height:60px}
               <div style="display:flex;gap:7px">
                 <button class="btn btn-sm" style="flex:1;justify-content:center" onclick="doSave()"><i class="ti ti-device-floppy" style="font-size:11px"></i> Salvar rascunho</button>
                 <a href="#" id="pdf-link" style="flex:1;text-decoration:none"><button class="btn btn-sm btn-outline" style="width:100%;justify-content:center"><i class="ti ti-download" style="font-size:11px"></i> Baixar PDF</button></a>
-              
-            
-          
-        
-      
 
       <!-- CLIENTES -->
       <div class="page" id="p-clientes">
@@ -542,6 +538,33 @@ textarea.finput{resize:vertical;min-height:60px}
   
 
 
+<!-- MODAL CLIENTE -->
+<div class="ov" id="ov-client">
+  <div class="modal" style="width:600px">
+    <div class="modal-h"><h2 id="client-modal-title">Novo Cliente</h2><button class="close-x" onclick="closeOv('ov-client')">×</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="flabel">Código</label><input class="finput" id="cl-code" disabled placeholder="Gerado automaticamente"></div>
+      <div class="fg"><label class="flabel">Regime Tributário</label><select class="finput" id="cl-tax"><option value="">Selecionar...</option><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option></select></div>
+      <div class="fg" style="grid-column:1/-1"><label class="flabel">Nome *</label><input class="finput" id="cl-name" placeholder="Nome completo"></div>
+      <div class="fg"><label class="flabel">E-mail</label><input class="finput" id="cl-email"></div>
+      <div class="fg"><label class="flabel">Telefone</label><input class="finput" id="cl-phone"></div>
+      <div class="fg"><label class="flabel">Empresa</label><input class="finput" id="cl-company"></div>
+      <div class="fg"><label class="flabel">CPF/CNPJ</label><input class="finput" id="cl-cpf"></div>
+      <div class="fg"><label class="flabel">Inscrição Estadual</label><input class="finput" id="cl-ie"></div>
+      <div class="fg"><label class="flabel">CEP</label><input class="finput" id="cl-cep"></div>
+      <div class="fg"><label class="flabel">Rua</label><input class="finput" id="cl-street"></div>
+      <div class="fg"><label class="flabel">Número</label><input class="finput" id="cl-number"></div>
+      <div class="fg"><label class="flabel">Bairro</label><input class="finput" id="cl-neighborhood"></div>
+      <div class="fg"><label class="flabel">Cidade</label><input class="finput" id="cl-city"></div>
+      <div class="fg"><label class="flabel">Estado</label><select class="finput" id="cl-state"><option value="">UF</option><option>AC</option><option>AL</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option></select></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeOv('ov-client')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveClient()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-box" id="toast">
 
 <script>
@@ -591,7 +614,7 @@ async function loadAll(){
 function nav(page,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.getElementById('p-'+page)?.classList.add('on');
-  const titles={dash:'Dashboard',propostas:'Propostas',nova:'Nova Proposta',vendedores:'Vendedores',relatorios:'Relatórios',config:'Configurações'};
+  const titles={dash:'Dashboard',clientes:'Clientes',propostas:'Propostas',nova:'Nova Proposta',vendedores:'Vendedores',relatorios:'Relatórios',config:'Configurações'};
   document.getElementById('ptitle').textContent=titles[page]||page;
   document.getElementById('btn-export').style.display=page==='relatorios'?'':'none';
   if(page==='dash') renderDash();
