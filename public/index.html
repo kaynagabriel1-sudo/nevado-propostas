@@ -42,6 +42,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--dark);heigh
 .av-info span{font-size:10px;color:rgba(255,255,255,0.4)}
 .sb-logout{margin-left:auto;background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:15px;transition:color .12s}
 .sb-logout:hover{color:var(--red)}
+.avatar-upload{position:relative;cursor:pointer;display:inline-block}
+.avatar-upload img{width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.3)}
+.avatar-overlay{position:absolute;inset:0;border-radius:50%;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;font-size:10px;color:#fff}
+.avatar-upload:hover .avatar-overlay{display:flex}
+.avatar-big{width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid var(--border)}
 
 /* MAIN */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
@@ -237,7 +242,8 @@ textarea.finput{resize:vertical;min-height:60px}
       <div class="sb-item" onclick="nav('config',this)"><i class="ti ti-settings"></i> Configurações</div>
     </nav>
     <div class="sb-foot">
-      <div class="av" id="sb-av" style="background:var(--red)">VN</div>
+      <div class="avatar-upload" onclick="triggerPhotoUpload()" title="Clique para alterar foto"><div class="av" id="sb-av" style="background:var(--red)">VN</div><div class="avatar-overlay">📷</div></div>
+      <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="uploadPhoto(this)">
       <div class="av-info"><p id="sb-name">Carregando…</p><span id="sb-role">—</span></div>
       <button class="sb-logout" onclick="logout()" title="Sair"><i class="ti ti-logout"></i></button>
     </div>
@@ -577,6 +583,20 @@ textarea.finput{resize:vertical;min-height:60px}
           </div>
         </div>
         <div class="fsec" style="max-width:540px;margin-top:12px">
+          <div class="sec-title"><i class="ti ti-camera"></i> Minha foto de perfil</div>
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+            <div id="profile-photo-container">
+              <div class="av" id="profile-av" style="width:64px;height:64px;font-size:18px;background:var(--red)">VN</div>
+            </div>
+            <div>
+              <p style="font-size:13px;color:#374151;margin-bottom:6px">Adicione uma foto de perfil</p>
+              <p style="font-size:11px;color:#9CA3AF;margin-bottom:10px">JPG ou PNG, máximo 2MB</p>
+              <button class="btn btn-sm" onclick="triggerPhotoUpload()"><i class="ti ti-camera" style="font-size:11px"></i> Escolher foto</button>
+              <button class="btn btn-sm" id="btn-remove-photo" style="display:none;color:var(--rec)" onclick="removePhoto()"><i class="ti ti-trash" style="font-size:11px"></i> Remover</button>
+            </div>
+          </div>
+        </div>
+        <div class="fsec" style="max-width:540px;margin-top:12px">
           <div class="sec-title"><i class="ti ti-lock"></i> Alterar minha senha</div>
           <div class="fgrid" style="grid-template-columns:1fr">
             <div class="fg"><label class="flabel">Senha atual</label><input class="finput" type="password" id="cp-cur" placeholder="••••••••"></div>
@@ -682,6 +702,7 @@ let itemCount=0, viewingId=null;
   const v=new Date(); v.setDate(v.getDate()+30);
   document.getElementById('nc-validity').value=v.toISOString().split('T')[0];
   await loadAll();
+  loadUserPhoto();
   nav('dash',document.querySelector('.sb-item'));
   initForm();
 })();
@@ -989,7 +1010,9 @@ function renderSellers(){
     const pct=Math.min(100,s.goal>0?Math.round(vol/s.goal*100):0);
     return `<div class="sc">
       <div class="sc-head">
-        <div class="av" style="width:38px;height:38px;font-size:12px;background:${s.color||'#C8102E'}">${ini(s.name)}</div>
+        <div class="av" style="width:38px;height:38px;font-size:12px;background:${s.photo?'transparent':s.color||'#C8102E'};padding:${s.photo?'0':''}">
+          ${s.photo?`<img src="${s.photo}" style="width:38px;height:38px;border-radius:50%;object-fit:cover">`:ini(s.name)}
+        </div>
         <div><div class="sc-name">${s.name}</div><div class="sc-role">${s.role||'Vendedor'}</div></div>
       </div>
       <div class="sc-stats">
@@ -1499,6 +1522,137 @@ async function quickWhatsApp(id, clientName, tel){
     const phoneFormatted = phone.startsWith('55') ? phone : '55'+phone;
     window.open('https://wa.me/'+phoneFormatted+'?text='+encodeURIComponent(msg), '_blank');
   }catch(e){ showToast('Erro: '+e.message); }
+}
+
+
+
+// EDITAR/EXCLUIR VENDEDOR
+function openEditSeller(id){
+  const s = sellers.find(x => x.id === id);
+  if(!s) return;
+  document.getElementById('es-id').value = s.id;
+  document.getElementById('es-name').value = s.name || '';
+  document.getElementById('es-email').value = s.email || '';
+  document.getElementById('es-role').value = s.role || '';
+  document.getElementById('es-goal').value = s.goal || '';
+  document.getElementById('es-color').value = s.color || '#C8102E';
+  document.getElementById('es-pass').value = '';
+  document.getElementById('ov-edit-seller').classList.add('open');
+}
+
+async function saveEditSeller(){
+  const id = document.getElementById('es-id').value;
+  const name = document.getElementById('es-name').value.trim();
+  const email = document.getElementById('es-email').value.trim();
+  if(!name || !email){ showToast('⚠ Preencha nome e e-mail'); return; }
+  const body = {
+    name, email,
+    role: document.getElementById('es-role').value,
+    goal: parseFloat(document.getElementById('es-goal').value) || 40000,
+    color: document.getElementById('es-color').value,
+  };
+  const pass = document.getElementById('es-pass').value;
+  if(pass) body.password = pass;
+  try {
+    await api('/api/sellers/'+id, 'PUT', body);
+    sellers = await api('/api/sellers');
+    closeOv('ov-edit-seller');
+    showToast('✓ Vendedor atualizado!');
+    renderSellers();
+  } catch(e) { showToast('Erro: '+e.message); }
+}
+
+async function deleteSeller(id, name){
+  if(!confirm('Excluir o vendedor "'+name+'"? Esta ação não pode ser desfeita.')) return;
+  try {
+    await api('/api/sellers/'+id, 'DELETE');
+    sellers = sellers.filter(s => s.id !== id);
+    showToast('✓ Vendedor removido!');
+    renderSellers();
+  } catch(e) { showToast('Erro: '+e.message); }
+}
+
+// FOTO DE PERFIL
+function triggerPhotoUpload(){
+  document.getElementById('photo-input').click();
+}
+
+async function uploadPhoto(input){
+  const file = input.files[0];
+  if(!file) return;
+  if(file.size > 2*1024*1024){ showToast('⚠ Foto muito grande. Máximo 2MB.'); return; }
+  
+  const reader = new FileReader();
+  reader.onload = async function(e){
+    const base64 = e.target.result;
+    try {
+      await api('/api/auth/photo', 'POST', { photo: base64 });
+      updateAvatarDisplay(base64);
+      showToast('✓ Foto atualizada com sucesso!');
+    } catch(err) {
+      showToast('Erro ao salvar foto: '+err.message);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function removePhoto(){
+  if(!confirm('Remover foto de perfil?')) return;
+  try {
+    await api('/api/auth/photo', 'DELETE');
+    updateAvatarDisplay(null);
+    showToast('✓ Foto removida!');
+  } catch(e) { showToast('Erro: '+e.message); }
+}
+
+function updateAvatarDisplay(photoUrl){
+  // Update sidebar avatar
+  const sbAv = document.getElementById('sb-av');
+  if(sbAv){
+    if(photoUrl){
+      sbAv.innerHTML = '';
+      sbAv.style.background = 'transparent';
+      sbAv.style.padding = '0';
+      const img = document.createElement('img');
+      img.src = photoUrl;
+      img.style.cssText = 'width:30px;height:30px;border-radius:50%;object-fit:cover';
+      sbAv.appendChild(img);
+    } else {
+      sbAv.innerHTML = ini(me.name);
+      sbAv.style.background = me.color || '#C8102E';
+    }
+  }
+  
+  // Update config profile photo
+  const profileContainer = document.getElementById('profile-photo-container');
+  const profileAv = document.getElementById('profile-av');
+  const btnRemove = document.getElementById('btn-remove-photo');
+  
+  if(profileContainer && profileAv){
+    if(photoUrl){
+      profileAv.innerHTML = '';
+      profileAv.style.background = 'transparent';
+      profileAv.style.padding = '0';
+      const img = document.createElement('img');
+      img.src = photoUrl;
+      img.className = 'avatar-big';
+      profileAv.appendChild(img);
+      if(btnRemove) btnRemove.style.display = '';
+    } else {
+      profileAv.innerHTML = ini(me.name);
+      profileAv.style.background = me.color || '#C8102E';
+      if(btnRemove) btnRemove.style.display = 'none';
+    }
+  }
+  
+  // Update sellers grid if visible
+  if(photoUrl) me.photo = photoUrl;
+}
+
+function loadUserPhoto(){
+  if(me.photo){
+    updateAvatarDisplay(me.photo);
+  }
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200);}
