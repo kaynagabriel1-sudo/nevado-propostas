@@ -59,6 +59,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--dark);heigh
 .btn-outline:hover{background:#FEF2F2}
 .btn-sm{padding:5px 10px;font-size:11px}
 .btn-success{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-whats{background:#25D366;color:#fff;border-color:#25D366}
+.btn-whats:hover{background:#128C7E}
 .btn-success:hover{background:#15803D}
 .content{flex:1;overflow-y:auto;padding:20px 22px;background:var(--bg)}
 
@@ -410,6 +412,7 @@ textarea.finput{resize:vertical;min-height:60px}
             </div>
             <div class="preview-actions">
               <button class="btn btn-success" onclick="doSend()" style="width:100%;justify-content:center"><i class="ti ti-send" style="font-size:12px"></i> Enviar por e-mail ao cliente</button>
+              <button class="btn btn-whats" onclick="doWhatsApp()" style="width:100%;justify-content:center"><i class="ti ti-brand-whatsapp" style="font-size:12px"></i> Enviar por WhatsApp</button>
               <div style="display:flex;gap:7px">
                 <button class="btn btn-sm" style="flex:1;justify-content:center" onclick="doSave()"><i class="ti ti-device-floppy" style="font-size:11px"></i> Salvar rascunho</button>
                 <a href="#" id="pdf-link" style="flex:1;text-decoration:none"><button class="btn btn-sm btn-outline" style="width:100%;justify-content:center"><i class="ti ti-download" style="font-size:11px"></i> Baixar PDF</button></a>
@@ -551,6 +554,7 @@ textarea.finput{resize:vertical;min-height:60px}
     <div class="modal-foot">
       <button class="btn" onclick="closeOv('ov-view')">Fechar</button>
       <button class="btn btn-outline" id="vw-pdf"><i class="ti ti-download" style="font-size:12px"></i> Baixar PDF</button>
+      <button class="btn btn-whats" id="vw-whats"><i class="ti ti-brand-whatsapp" style="font-size:12px"></i> WhatsApp</button>
       <button class="btn btn-primary" id="vw-send"><i class="ti ti-send" style="font-size:12px"></i> Reenviar e-mail</button>
     </div>
   </div>
@@ -664,6 +668,7 @@ function tblRows(data, compact=false){
       <td style="font-size:11px;color:#9CA3AF">${fdate(p.created_at)}</td>
       ${!compact?`<td onclick="event.stopPropagation()" style="white-space:nowrap">
         <button class="btn btn-sm" onclick="quickSend('${p.id}')" title="Reenviar e-mail"><i class="ti ti-send" style="font-size:11px"></i></button>
+        <button class="btn btn-sm btn-whats" onclick="quickWhatsApp('${p.id}','${p.client_name}','${p.client_tel||p.id}')" title="WhatsApp" style="padding:5px 8px"><i class="ti ti-brand-whatsapp" style="font-size:11px"></i></button>
         <a href="/api/proposals/${p.id}/pdf" target="_blank"><button class="btn btn-sm" title="Baixar PDF"><i class="ti ti-download" style="font-size:11px"></i></button></a>
       </td>`:''}
     </tr>`).join('')+
@@ -726,6 +731,7 @@ async function viewP(id){
       </div>
     </div>`;
   document.getElementById('vw-pdf').onclick=()=>window.open('/api/proposals/'+id+'/pdf','_blank');
+  document.getElementById('vw-whats').onclick=()=>quickWhatsApp(id, p.client_name, p.client_tel);
   document.getElementById('vw-send').onclick=()=>reSend(id);
     // Load review if exists
     try {
@@ -1136,6 +1142,67 @@ async function deleteClient(id){
     await api('/api/clients/'+id,'DELETE');
     showToast('✓ Cliente removido!');
     renderClients();
+  }catch(e){ showToast('Erro: '+e.message); }
+}
+
+
+// WHATSAPP
+function buildWhatsMsg(name, proposalId, items, total, pagto, prazo, validity){
+  const itens = items.map(i=>`• ${i.desc} x${i.qty} = R$ ${(i.qty*i.price).toLocaleString('pt-BR',{minimumFractionDigits:2})}`).join('\n');
+  const val = new Date(validity);
+  const valStr = validity ? val.toLocaleDateString('pt-BR') : '—';
+  return `Olá ${name}! 😊
+
+Segue nossa *Proposta Comercial ${proposalId}* — Valle Nevado Chocolates 🍫
+
+*Produtos:*
+${itens}
+
+*Total: R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}*
+${pagto?'*Pagamento:* '+pagto:''}
+${prazo?'*Prazo de entrega:* '+prazo:''}
+${validity?'*Validade:* '+valStr:''}
+
+Em caso de dúvidas, estamos à disposição!
+📞 (15) 3261-3318
+🌐 www.chocolatesnevado.com.br`;
+}
+
+function doWhatsApp(){
+  const name = document.getElementById('nc-name')?.value||'';
+  const tel = document.getElementById('nc-tel')?.value||'';
+  const pagto = document.getElementById('nc-pagto')?.value||'';
+  const prazo = document.getElementById('nc-prazo')?.value||'';
+  const validity = document.getElementById('nc-validity')?.value||'';
+  
+  if(!tel){ showToast('⚠ Preencha o telefone do cliente'); return; }
+  
+  const items = [];
+  document.querySelectorAll('.irow').forEach(r=>{
+    const ins = r.querySelectorAll('input');
+    const desc = ins[1]?.value; const qty = parseFloat(ins[2]?.value)||0; const price = parseFloat(ins[5]?.value)||0;
+    if(desc&&qty) items.push({desc,qty,price});
+  });
+  
+  const total = items.reduce((s,i)=>s+i.qty*i.price,0);
+  const propId = 'Nova Proposta';
+  const msg = buildWhatsMsg(name, propId, items, total, pagto, prazo, validity);
+  const phone = tel.replace(/\D/g,'');
+  const phoneFormatted = phone.startsWith('55') ? phone : '55'+phone;
+  const url = `https://wa.me/${phoneFormatted}?text=${encodeURIComponent(msg)}`;
+  window.open(url, '_blank');
+}
+
+async function quickWhatsApp(id, clientName, tel){
+  try{
+    const p = await api('/api/proposals/'+id);
+    const items = p.items||[];
+    const msg = buildWhatsMsg(p.client_name, p.id, items, p.value, p.pagto, p.prazo, p.validity);
+    const phone = (p.client_tel||tel||'').replace(/\D/g,'');
+    if(!phone){ showToast('⚠ Cliente sem telefone cadastrado'); return; }
+    const phoneFormatted = phone.startsWith('55') ? phone : '55'+phone;
+    const url = `https://wa.me/${phoneFormatted}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
   }catch(e){ showToast('Erro: '+e.message); }
 }
 
