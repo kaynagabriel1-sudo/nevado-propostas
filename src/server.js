@@ -27,10 +27,8 @@ app.use('/api/clients',   require('./routes/clients'));
 app.get('/login', (req, res) =>
   res.sendFile(path.join(__dirname, '../public/login.html')));
 
-app.get('*', (req, res) => {
-  if (!req.session.userId) return res.redirect('/login');
-  res.sendFile(path.join(__dirname, '../public/index.html'));
-});
+app.get('*', (req, res) =>
+  res.sendFile(path.join(__dirname, '../public/index.html')));
 
 db.init().then(async () => {
   const adminEmail = 'admin@chocolatesnevado.com.br';
