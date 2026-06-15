@@ -2,8 +2,9 @@
 const express  = require('express');
 const db       = require('../database');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
-const { sendProposalEmail } = require('../utils/mailer');
+const { sendProposalEmail, sendReviewEmail } = require('../utils/mailer');
 const { generateProposalPDF } = require('../utils/pdfGenerator');
+const crypto   = require('crypto');
 const router   = express.Router();
 
 async function genId() {
@@ -39,11 +40,12 @@ router.post('/', requireAuth, async (req, res) => {
     const value = itemsArr.reduce((s, i) => s + (i.qty * i.price), 0);
     const id = await genId();
     const status = sendEmail ? 'Enviada' : 'Pendente';
-    await db.prepare(`INSERT INTO proposals (id, client_name, client_email, client_cnpj, client_tel, client_cidade, pagto, prazo, seller_id, value, status, validity, notes, items, extra, sent_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`)
+    const review_token = crypto.randomBytes(16).toString('hex');
+    await db.prepare(`INSERT INTO proposals (id, client_name, client_email, client_cnpj, client_tel, client_cidade, pagto, prazo, seller_id, value, status, validity, notes, items, extra, sent_at, review_token)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`)
       .run(id, client_name, client_email, client_cnpj||'', client_tel||'', client_cidade||'', pagto||'', prazo||'',
            req.session.userId, value, status, validity||null, notes||'', JSON.stringify(itemsArr),
-           extra||'{}', sendEmail ? new Date().toISOString() : null);
+           extra||'{}', sendEmail ? new Date().toISOString() : null, review_token);
     const proposal = await db.prepare('SELECT * FROM proposals WHERE id = $1').get(id);
     const seller   = await db.prepare('SELECT * FROM users WHERE id = $1').get(req.session.userId);
     if (sendEmail) {
@@ -68,7 +70,18 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
     const { status } = req.body;
     const valid = ['Pendente','Enviada','Aprovada','Recusada'];
     if (!valid.includes(status)) return res.status(400).json({ error: 'Status inválido.' });
+    
+    const oldProposal = await db.prepare('SELECT * FROM proposals WHERE id = $1').get(req.params.id);
     await db.prepare('UPDATE proposals SET status = $1 WHERE id = $2').run(status, req.params.id);
+    
+    // Send review email when status changes to Aprovada
+    if (status === 'Aprovada' && oldProposal && oldProposal.status !== 'Aprovada') {
+      try {
+        const seller = await db.prepare('SELECT * FROM users WHERE id = $1').get(oldProposal.seller_id);
+        await sendReviewEmail(oldProposal, seller);
+      } catch(e) { console.error('Erro ao enviar e-mail de avaliação:', e.message); }
+    }
+    
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

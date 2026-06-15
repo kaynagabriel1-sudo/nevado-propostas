@@ -222,6 +222,7 @@ textarea.finput{resize:vertical;min-height:60px}
       <div class="sb-item" onclick="nav('clientes',this)"><i class="ti ti-address-book"></i> Clientes</div>
       <div class="sb-sec admin-only">Gestão</div>
       <div class="sb-item admin-only" onclick="nav('vendedores',this)"><i class="ti ti-users"></i> Vendedores</div>
+      <div class="sb-item" onclick="nav('avaliacoes',this)"><i class="ti ti-star"></i> Avaliações</div>
       <div class="sb-item" onclick="nav('relatorios',this)"><i class="ti ti-chart-bar"></i> Relatórios</div>
       <div class="sb-sec">Config.</div>
       <div class="sb-item" onclick="nav('config',this)"><i class="ti ti-settings"></i> Configurações</div>
@@ -477,6 +478,23 @@ textarea.finput{resize:vertical;min-height:60px}
         </div>
       </div>
 
+      <!-- AVALIACOES -->
+      <div class="page" id="p-avaliacoes">
+        <div class="kpi-row" id="av-kpis" style="grid-template-columns:repeat(4,1fr)">
+          <div class="kpi"><div class="kpi-label">Total Avaliações</div><div class="kpi-val" id="av-tot">—</div></div>
+          <div class="kpi"><div class="kpi-label">⭐ Qualidade média</div><div class="kpi-val" id="av-qual">—</div></div>
+          <div class="kpi"><div class="kpi-label">⭐ Atendimento médio</div><div class="kpi-val" id="av-atend">—</div></div>
+          <div class="kpi"><div class="kpi-label">✅ Expectativas atendidas</div><div class="kpi-val" id="av-exp">—</div></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Avaliações dos clientes</span>
+            <button class="btn btn-sm" onclick="exportAvaliacoes()"><i class="ti ti-download" style="font-size:11px"></i> Exportar</button>
+          </div>
+          <div id="av-list"></div>
+        </div>
+      </div>
+
       <!-- CONFIG -->
       <div class="page" id="p-config">
         <div class="fsec" style="max-width:540px">
@@ -614,7 +632,7 @@ async function loadAll(){
 function nav(page,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.getElementById('p-'+page)?.classList.add('on');
-  const titles={dash:'Dashboard',clientes:'Clientes',propostas:'Propostas',nova:'Nova Proposta',vendedores:'Vendedores',relatorios:'Relatórios',config:'Configurações'};
+  const titles={dash:'Dashboard',clientes:'Clientes',propostas:'Propostas',nova:'Nova Proposta',vendedores:'Vendedores',avaliacoes:'Avaliações',relatorios:'Relatórios',config:'Configurações'};
   document.getElementById('ptitle').textContent=titles[page]||page;
   document.getElementById('btn-export').style.display=page==='relatorios'?'':'none';
   if(page==='dash') renderDash();
@@ -622,6 +640,7 @@ function nav(page,el){
   if(page==='vendedores') renderSellers();
   if(page==='relatorios') loadReport();
   if(page==='clientes') renderClients();
+  if(page==='avaliacoes') renderAvaliacoes();
   if(page==='nova') initForm();
 }
 
@@ -708,6 +727,25 @@ async function viewP(id){
     </div>`;
   document.getElementById('vw-pdf').onclick=()=>window.open('/api/proposals/'+id+'/pdf','_blank');
   document.getElementById('vw-send').onclick=()=>reSend(id);
+    // Load review if exists
+    try {
+      const review = await api('/api/reviews/proposal/'+id);
+      if(review) {
+        const stars = n => '★'.repeat(n)+'☆'.repeat(5-n);
+        const reviewHtml = `<div style="margin-top:14px;padding:14px;background:#FFFBEB;border-radius:8px;border:1px solid #FDE68A">
+          <div style="font-size:11px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">⭐ Avaliação do Cliente</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+            <div style="text-align:center"><div style="font-size:10px;color:#6B7280">Qualidade</div><div style="color:#FFD700;font-size:16px">${stars(review.qualidade)}</div></div>
+            <div style="text-align:center"><div style="font-size:10px;color:#6B7280">Atendimento</div><div style="color:#FFD700;font-size:16px">${stars(review.atendimento)}</div></div>
+            <div style="text-align:center"><div style="font-size:10px;color:#6B7280">Prazo</div><div style="color:#FFD700;font-size:16px">${stars(review.prazo)}</div></div>
+          </div>
+          <div style="font-size:12px;margin-bottom:4px"><strong>Expectativas:</strong> ${review.expectativas}</div>
+          ${review.melhorias?`<div style="font-size:12px;margin-bottom:4px"><strong>Melhorias:</strong> ${review.melhorias}</div>`:''}
+          ${review.comentario?`<div style="font-size:12px"><strong>Comentário:</strong> ${review.comentario}</div>`:''}
+        </div>`;
+        document.getElementById('vw-content').innerHTML += reviewHtml;
+      }
+    } catch(e) {}
   document.getElementById('ov-view').classList.add('open');
 }
 
@@ -950,6 +988,56 @@ async function api(url,method='GET',body=null){
   return data;
 }
 
+
+// AVALIACOES
+let avaliacoes = [];
+
+async function renderAvaliacoes(){
+  try { avaliacoes = await api('/api/reviews'); } catch(e) { avaliacoes = []; }
+  const el = document.getElementById('av-list');
+  if(!el) return;
+  
+  // KPIs
+  const tot = avaliacoes.length;
+  const avgQual = tot ? (avaliacoes.reduce((s,r)=>s+r.qualidade,0)/tot).toFixed(1) : '—';
+  const avgAtend = tot ? (avaliacoes.reduce((s,r)=>s+r.atendimento,0)/tot).toFixed(1) : '—';
+  const expSim = tot ? Math.round(avaliacoes.filter(r=>r.expectativas==='Sim').length/tot*100)+'%' : '—';
+  
+  if(document.getElementById('av-tot')) document.getElementById('av-tot').textContent=tot;
+  if(document.getElementById('av-qual')) document.getElementById('av-qual').textContent=avgQual ? avgQual+'★' : '—';
+  if(document.getElementById('av-atend')) document.getElementById('av-atend').textContent=avgAtend ? avgAtend+'★' : '—';
+  if(document.getElementById('av-exp')) document.getElementById('av-exp').textContent=expSim;
+  
+  if(!tot){
+    el.innerHTML='<div style="padding:24px;text-align:center;font-size:12px;color:#9CA3AF">Nenhuma avaliação recebida ainda</div>';
+    return;
+  }
+  
+  const stars = n => '★'.repeat(n)+'☆'.repeat(5-n);
+  el.innerHTML='<table><thead><tr><th>Proposta</th><th>Cliente</th><th>Vendedor</th><th>Qualidade</th><th>Atendimento</th><th>Prazo</th><th>Expectativas</th><th>Data</th></tr></thead><tbody>'+
+    avaliacoes.map(r=>`<tr>
+      <td style="font-family:monospace;font-size:11px">${r.proposal_id}</td>
+      <td style="font-size:12px"><strong>${r.client_name}</strong></td>
+      <td style="font-size:12px">${r.seller_name||'—'}</td>
+      <td style="color:#FFD700">${stars(r.qualidade)}</td>
+      <td style="color:#FFD700">${stars(r.atendimento)}</td>
+      <td style="color:#FFD700">${stars(r.prazo)}</td>
+      <td><span style="padding:2px 8px;border-radius:12px;font-size:11px;background:${r.expectativas==='Sim'?'#F0FDF4':'#FEF2F2'};color:${r.expectativas==='Sim'?'#16A34A':'#DC2626'}">${r.expectativas}</span></td>
+      <td style="font-size:11px;color:#9CA3AF">${fdate(r.created_at)}</td>
+    </tr>`).join('')+
+  '</tbody></table>';
+}
+
+function exportAvaliacoes(){
+  if(!avaliacoes.length){ showToast('Nenhuma avaliação para exportar'); return; }
+  const headers = ['Proposta','Cliente','Vendedor','Qualidade','Atendimento','Prazo','Expectativas','Melhorias','Comentario','Data'];
+  const rows = avaliacoes.map(r=>[r.proposal_id,r.client_name,r.seller_name||'',r.qualidade,r.atendimento,r.prazo,r.expectativas,r.melhorias||'',r.comentario||'',r.created_at]);
+  const csv = [headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='avaliacoes-nevado.csv'; a.click();
+  showToast('✅ CSV exportado!');
+}
 
 // CLIENTES
 let clients=[], editingClientId=null;

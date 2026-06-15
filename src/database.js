@@ -1,6 +1,5 @@
 // src/database.js — PostgreSQL via Neon
 const { Pool } = require('pg');
-
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
@@ -35,6 +34,7 @@ const SCHEMA = `
     items TEXT,
     sent_at TEXT,
     extra TEXT DEFAULT '{}',
+    review_token TEXT,
     created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
   );
   CREATE TABLE IF NOT EXISTS clients (
@@ -55,7 +55,18 @@ const SCHEMA = `
     state TEXT,
     created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
   );
-CREATE TABLE IF NOT EXISTS email_logs (
+  CREATE TABLE IF NOT EXISTS reviews (
+    id SERIAL PRIMARY KEY,
+    proposal_id TEXT NOT NULL,
+    qualidade INTEGER,
+    atendimento INTEGER,
+    prazo INTEGER,
+    expectativas TEXT,
+    melhorias TEXT,
+    comentario TEXT,
+    created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
+  );
+  CREATE TABLE IF NOT EXISTS email_logs (
     id SERIAL PRIMARY KEY,
     proposal_id TEXT,
     to_email TEXT,
@@ -71,12 +82,15 @@ class DB {
 
   async init() {
     await pool.query(SCHEMA);
+    // Add review_token column if it doesn't exist (migration)
+    try {
+      await pool.query("ALTER TABLE proposals ADD COLUMN IF NOT EXISTS review_token TEXT");
+    } catch(e) {}
     this._ready = true;
     return this;
   }
 
   prepare(sql) {
-    // Converte ? para $1, $2... (PostgreSQL)
     let i = 0;
     const pgSql = sql.replace(/\?/g, () => `$${++i}`);
     return {
@@ -92,7 +106,6 @@ class DB {
         const res = await pool.query(pgSql, params);
         return res.rows;
       },
-      // Versões síncronas para compatibilidade (retornam promises)
       runSync(...params) { return pool.query(pgSql, params); },
       getSync(...params) { return pool.query(pgSql, params).then(r => r.rows[0]); },
       allSync(...params) { return pool.query(pgSql, params).then(r => r.rows); }
@@ -103,7 +116,7 @@ class DB {
     await pool.query(sql);
   }
 
-  pragma() {} // não usado no PostgreSQL
+  pragma() {}
 }
 
 module.exports = new DB();

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avaliação — Valle Nevado Chocolates</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#F5F6FA;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:12px;width:100%;max-width:560px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)}
+.header{background:#0f1d3a;padding:24px 28px;display:flex;align-items:center;gap:14px}
+.header-texts h1{font-size:16px;font-weight:700;color:#fff}
+.header-texts p{font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px}
+.faixa{background:#C8102E;height:4px}
+.body{padding:28px}
+.client-name{font-size:13px;color:#6B7280;margin-bottom:4px}
+.proposal-id{font-size:18px;font-weight:700;color:#0f1d3a;margin-bottom:24px}
+.section{margin-bottom:20px}
+.section label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.stars{display:flex;gap:6px}
+.stars input{display:none}
+.stars label{font-size:28px;cursor:pointer;color:#D1D5DB;transition:color .1s}
+.stars input:checked ~ label,.stars label:hover,.stars label:hover ~ label{color:#FFD700}
+.stars{flex-direction:row-reverse;justify-content:flex-end}
+.stars label:hover,.stars label:hover ~ label,.stars input:checked ~ label{color:#FFD700}
+.radio-group{display:flex;gap:10px}
+.radio-btn{flex:1;padding:10px;border:2px solid #E5E7EB;border-radius:8px;text-align:center;cursor:pointer;font-size:13px;font-weight:500;color:#6B7280;transition:all .15s}
+.radio-btn.selected-yes{border-color:#16A34A;background:#F0FDF4;color:#16A34A}
+.radio-btn.selected-no{border-color:#DC2626;background:#FEF2F2;color:#DC2626}
+textarea{width:100%;border:1px solid #E5E7EB;border-radius:8px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:13px;resize:vertical;min-height:80px;outline:none;color:#374151}
+textarea:focus{border-color:#C8102E}
+.btn{width:100%;padding:13px;background:#C8102E;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px}
+.btn:hover{background:#A50D25}
+.success{text-align:center;padding:40px 28px}
+.success-icon{font-size:56px;margin-bottom:16px}
+.success h2{font-size:20px;font-weight:700;color:#0f1d3a;margin-bottom:8px}
+.success p{font-size:13px;color:#6B7280;line-height:1.6}
+.error-msg{color:#DC2626;font-size:12px;margin-top:4px}
+.loading{text-align:center;padding:40px;color:#6B7280}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div class="header-texts">
+      <h1>Valle Nevado Chocolates</h1>
+      <p>Pesquisa de satisfação pós-venda</p>
+    </div>
+  </div>
+  <div class="faixa"></div>
+  <div id="content" class="loading">Carregando...</div>
+</div>
+
+<script>
+const token = location.pathname.split('/').pop();
+let proposta = null;
+
+async function load(){
+  try{
+    const r = await fetch('/api/reviews/token/'+token);
+    if(!r.ok) throw new Error('Link inválido');
+    proposta = await r.json();
+    if(proposta.already_reviewed){
+      document.getElementById('content').innerHTML = `
+        <div class="success">
+          <div class="success-icon">✅</div>
+          <h2>Já avaliado!</h2>
+          <p>Esta proposta já foi avaliada anteriormente.<br>Obrigado pelo seu feedback!</p>
+        </div>`;
+      return;
+    }
+    renderForm();
+  }catch(e){
+    document.getElementById('content').innerHTML = `
+      <div class="success">
+        <div class="success-icon">❌</div>
+        <h2>Link inválido</h2>
+        <p>Este link de avaliação não existe ou expirou.</p>
+      </div>`;
+  }
+}
+
+function renderForm(){
+  document.getElementById('content').innerHTML = `
+    <div class="body">
+      <div class="client-name">Olá, ${proposta.client_name}!</div>
+      <div class="proposal-id">Avalie a proposta ${proposta.proposal_id}</div>
+      
+      <div class="section">
+        <label>⭐ Qualidade do produto</label>
+        <div class="stars" id="stars-qualidade">
+          <input type="radio" name="qualidade" id="q5" value="5"><label for="q5">★</label>
+          <input type="radio" name="qualidade" id="q4" value="4"><label for="q4">★</label>
+          <input type="radio" name="qualidade" id="q3" value="3"><label for="q3">★</label>
+          <input type="radio" name="qualidade" id="q2" value="2"><label for="q2">★</label>
+          <input type="radio" name="qualidade" id="q1" value="1"><label for="q1">★</label>
+        </div>
+      </div>
+
+      <div class="section">
+        <label>⭐ Atendimento</label>
+        <div class="stars" id="stars-atendimento">
+          <input type="radio" name="atendimento" id="a5" value="5"><label for="a5">★</label>
+          <input type="radio" name="atendimento" id="a4" value="4"><label for="a4">★</label>
+          <input type="radio" name="atendimento" id="a3" value="3"><label for="a3">★</label>
+          <input type="radio" name="atendimento" id="a2" value="2"><label for="a2">★</label>
+          <input type="radio" name="atendimento" id="a1" value="1"><label for="a1">★</label>
+        </div>
+      </div>
+
+      <div class="section">
+        <label>⭐ Prazo de entrega</label>
+        <div class="stars" id="stars-prazo">
+          <input type="radio" name="prazo" id="p5" value="5"><label for="p5">★</label>
+          <input type="radio" name="prazo" id="p4" value="4"><label for="p4">★</label>
+          <input type="radio" name="prazo" id="p3" value="3"><label for="p3">★</label>
+          <input type="radio" name="prazo" id="p2" value="2"><label for="p2">★</label>
+          <input type="radio" name="prazo" id="p1" value="1"><label for="p1">★</label>
+        </div>
+      </div>
+
+      <div class="section">
+        <label>✅ O produto atendeu suas expectativas?</label>
+        <div class="radio-group">
+          <div class="radio-btn" id="btn-sim" onclick="selectExp('Sim')">👍 Sim, atendeu!</div>
+          <div class="radio-btn" id="btn-nao" onclick="selectExp('Não')">👎 Não atendeu</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <label>💡 O que podemos melhorar?</label>
+        <textarea id="melhorias" placeholder="Sugestões de melhoria..."></textarea>
+      </div>
+
+      <div class="section">
+        <label>💬 Comentário adicional</label>
+        <textarea id="comentario" placeholder="Deixe um comentário..."></textarea>
+      </div>
+
+      <div id="error-msg" class="error-msg" style="display:none"></div>
+      <button class="btn" onclick="submit()">Enviar Avaliação</button>
+    </div>`;
+}
+
+let expectativas = '';
+function selectExp(val){
+  expectativas = val;
+  document.getElementById('btn-sim').className = 'radio-btn' + (val==='Sim'?' selected-yes':'');
+  document.getElementById('btn-nao').className = 'radio-btn' + (val==='Não'?' selected-no':'');
+}
+
+async function submit(){
+  const qualidade = document.querySelector('input[name="qualidade"]:checked')?.value;
+  const atendimento = document.querySelector('input[name="atendimento"]:checked')?.value;
+  const prazo = document.querySelector('input[name="prazo"]:checked')?.value;
+  if(!qualidade||!atendimento||!prazo){
+    document.getElementById('error-msg').textContent='Por favor, avalie todos os itens com estrelas.';
+    document.getElementById('error-msg').style.display='block';
+    return;
+  }
+  if(!expectativas){
+    document.getElementById('error-msg').textContent='Por favor, indique se o produto atendeu suas expectativas.';
+    document.getElementById('error-msg').style.display='block';
+    return;
+  }
+  try{
+    const r = await fetch('/api/reviews/submit/'+token,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        qualidade:parseInt(qualidade),
+        atendimento:parseInt(atendimento),
+        prazo:parseInt(prazo),
+        expectativas,
+        melhorias:document.getElementById('melhorias').value,
+        comentario:document.getElementById('comentario').value
+      })
+    });
+    if(!r.ok) throw new Error((await r.json()).error);
+    document.getElementById('content').innerHTML=`
+      <div class="success">
+        <div class="success-icon">🎉</div>
+        <h2>Obrigado pelo feedback!</h2>
+        <p>Sua avaliação foi registrada com sucesso.<br>Ela nos ajuda a melhorar cada vez mais!</p>
+      </div>`;
+  }catch(e){
+    document.getElementById('error-msg').textContent=e.message;
+    document.getElementById('error-msg').style.display='block';
+  }
+}
+
+load();
+</script>
+</body>
+</html>

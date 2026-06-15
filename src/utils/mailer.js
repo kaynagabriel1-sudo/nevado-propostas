@@ -151,4 +151,64 @@ async function sendProposalEmail(proposal, seller) {
   return true;
 }
 
-module.exports = { sendProposalEmail, buildEmailHtml };
+
+async function sendReviewEmail(proposal, seller) {
+  const baseUrl = process.env.APP_URL || 'https://nevado-propostas.onrender.com';
+  const reviewLink = `${baseUrl}/review/${proposal.review_token}`;
+  
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#F5F6FA;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0">
+<tr><td align="center" style="padding:32px 16px;">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:10px;overflow:hidden;border:1px solid #E5E7EB;">
+  <tr><td style="background:#1a2e5a;padding:20px 30px;">
+    <p style="color:#fff;font-size:14px;font-weight:700;margin:0;">Valle Nevado Chocolates</p>
+    <p style="color:rgba(255,255,255,0.5);font-size:10px;margin:3px 0 0;">Pesquisa de Satisfação</p>
+  </td></tr>
+  <tr><td style="background:#C8102E;height:4px;"></td></tr>
+  <tr><td style="padding:28px 30px;">
+    <h2 style="color:#1a2e5a;font-size:20px;margin:0 0 16px;">Sua opinião é muito importante! 🎉</h2>
+    <p style="color:#374151;font-size:14px;line-height:1.7;margin-bottom:8px;">Olá, <strong>${proposal.client_name}</strong>!</p>
+    <p style="color:#555;font-size:13px;line-height:1.7;margin-bottom:24px;">
+      Sua proposta <strong>${proposal.id}</strong> foi aprovada e ficamos muito felizes em tê-lo como cliente!
+      Gostaríamos de saber como foi sua experiência conosco.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${reviewLink}" style="background:#C8102E;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:700;display:inline-block;">
+        ⭐ Avaliar agora
+      </a>
+    </div>
+    <p style="color:#9CA3AF;font-size:12px;text-align:center;margin-top:16px;">
+      Ou acesse: <a href="${reviewLink}" style="color:#C8102E;">${reviewLink}</a>
+    </p>
+  </td></tr>
+  <tr><td style="background:#1a2e5a;padding:16px 30px;">
+    <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.5);text-align:center;">
+      ${company} · ${emailCom} · ${phone}
+    </p>
+  </td></tr>
+</table></td></tr></table>
+</body></html>`;
+
+  const subject = `Como foi sua experiência? Avalie a Valle Nevado Chocolates`;
+  const to = proposal.client_email;
+  
+  try {
+    if (provider === 'gmail') {
+      await gmailTransport.sendMail({
+        from: `"Valle Nevado Chocolates" <${process.env.GMAIL_USER}>`,
+        to, subject, html,
+      });
+    } else if (provider === 'sendgrid') {
+      await sgMail.send({
+        from: { email: process.env.SENDGRID_FROM, name: 'Valle Nevado Chocolates' },
+        to, subject, html,
+      });
+    }
+    console.log('✅ E-mail de avaliação enviado para:', to);
+  } catch(err) {
+    console.error('❌ Erro ao enviar e-mail de avaliação:', err.message);
+  }
+}
+
+module.exports = { sendProposalEmail, buildEmailHtml, sendReviewEmail };
