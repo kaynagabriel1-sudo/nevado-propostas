@@ -83,6 +83,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--dark);heigh
 .card-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .sbox{display:flex;align-items:center;gap:7px;background:#F9FAFB;border:1px solid var(--border);border-radius:6px;padding:5px 10px}
 .sbox input{background:none;border:none;outline:none;font-size:12px;color:#374151;font-family:'Inter',sans-serif;width:140px}
+.client-search-box{position:relative;margin-bottom:14px}
+.client-dropdown{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:6px;z-index:50;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
+.client-dropdown-item{padding:10px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;font-size:12px;transition:background .1s}
+.client-dropdown-item:hover{background:#FEF2F2}
+.client-dropdown-item:last-child{border-bottom:none}
+.client-code{font-family:monospace;font-weight:700;color:var(--red);margin-right:8px}
 .sbox input::placeholder{color:#9CA3AF}
 .sbox i{font-size:13px;color:#9CA3AF}
 select.fsel{background:#F9FAFB;border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12px;color:#374151;font-family:'Inter',sans-serif;outline:none}
@@ -299,6 +305,14 @@ textarea.finput{resize:vertical;min-height:60px}
 
             <div class="fsec">
               <div class="sec-title"><i class="ti ti-user"></i> Dados do cliente (destinatário)</div>
+              <div class="client-search-box">
+                <div class="sbox" style="width:100%;gap:8px">
+                  <i class="ti ti-search" style="font-size:14px"></i>
+                  <input id="client-search" placeholder="Buscar cliente por nome, CNPJ ou código (ex: C-01)..." style="width:100%" oninput="searchClientProposal(this.value)" autocomplete="off">
+                  <button onclick="clearClientSearch()" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:14px" title="Limpar">✕</button>
+                </div>
+                <div id="client-dropdown" class="client-dropdown" style="display:none"></div>
+              </div>
               <div class="fgrid">
                 <div class="fg"><label class="flabel">Nome / Razão Social *</label><input class="finput" id="nc-name" placeholder="Ex: Distribuidora ABC Ltda" oninput="pvu()"></div>
                 <div class="fg"><label class="flabel">CNPJ do cliente</label><input class="finput" id="nc-cnpj" placeholder="00.000.000/0001-00" oninput="pvu()"></div>
@@ -1145,6 +1159,65 @@ async function deleteClient(id){
   }catch(e){ showToast('Erro: '+e.message); }
 }
 
+
+
+// BUSCA DE CLIENTE NA PROPOSTA
+function searchClientProposal(q){
+  const box = document.getElementById('client-dropdown');
+  if(!q || q.length < 2){ box.style.display='none'; return; }
+  const q2 = q.toLowerCase();
+  const found = clients.filter(c =>
+    c.name.toLowerCase().includes(q2) ||
+    (c.code && c.code.toLowerCase().includes(q2)) ||
+    (c.cpf_cnpj && c.cpf_cnpj.replace(/\D/g,'').includes(q.replace(/\D/g,'')))
+  ).slice(0, 8);
+  
+  if(!found.length){ box.style.display='none'; return; }
+  
+  box.innerHTML = found.map(c => `
+    <div class="client-dropdown-item" onclick="selectClientProposal(${c.id})">
+      <span class="client-code">${c.code||''}</span>
+      <strong>${c.name}</strong>
+      ${c.company ? `<span style="color:#6B7280"> — ${c.company}</span>` : ''}
+      <br>
+      <span style="color:#9CA3AF;font-size:11px">${c.cpf_cnpj||''} ${c.city?'· '+c.city+(c.state?'/'+c.state:''):''}</span>
+    </div>
+  `).join('');
+  box.style.display = 'block';
+}
+
+function selectClientProposal(id){
+  const c = clients.find(x => x.id === id);
+  if(!c) return;
+  
+  // Fill form fields
+  const set = (id, val) => { const el=document.getElementById(id); if(el) el.value=val||''; };
+  set('nc-name', c.name);
+  set('nc-email', c.email);
+  set('nc-tel', c.phone);
+  set('nc-cnpj', c.cpf_cnpj);
+  set('nc-cidade', c.city && c.state ? c.city+' / '+c.state : c.city||'');
+  
+  // Update search box
+  document.getElementById('client-search').value = c.code + ' — ' + c.name;
+  document.getElementById('client-dropdown').style.display = 'none';
+  
+  pvu();
+  showToast('✓ Cliente ' + c.code + ' carregado!');
+}
+
+function clearClientSearch(){
+  document.getElementById('client-search').value = '';
+  document.getElementById('client-dropdown').style.display = 'none';
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.client-search-box')){
+    const box = document.getElementById('client-dropdown');
+    if(box) box.style.display = 'none';
+  }
+});
 
 // WHATSAPP
 function buildWhatsMsg(name, proposalId, items, total, pagto, prazo, validity, pdfLink){
