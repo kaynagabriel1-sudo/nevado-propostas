@@ -842,6 +842,8 @@ async function quickSend(id){
 
 // FORM NOVA PROPOSTA
 function initForm(){
+  clienteCEP = '';
+  clienteEndereco = '';
   document.getElementById('items-body').innerHTML=''; itemCount=0;
   addRow(); calcTotal(); pvu();
   const pdfLink=document.getElementById('pdf-link');
@@ -1294,10 +1296,16 @@ function onEntregaChange(){
   const boxDist = document.getElementById('box-distancia');
   
   if(tipo === 'cliente'){
-    // Try to get client address from loaded client
-    const cidade = document.getElementById('nc-cidade')?.value || '';
-    if(cidade){
-      document.getElementById('nc-local-entrega').value = cidade;
+    // Use stored client address/CEP if available
+    if(clienteEndereco){
+      const nc_local = document.getElementById('nc-local-entrega');
+      if(nc_local && !nc_local.value) nc_local.value = clienteEndereco;
+    } else {
+      const cidade = document.getElementById('nc-cidade')?.value || '';
+      if(cidade){
+        const nc_local = document.getElementById('nc-local-entrega');
+        if(nc_local && !nc_local.value) nc_local.value = cidade;
+      }
     }
     if(boxDist) boxDist.style.display = 'block';
     calcularDistancia();
@@ -1308,10 +1316,20 @@ function onEntregaChange(){
 }
 
 async function calcularDistancia(){
-  const localEntrega = document.getElementById('nc-local-entrega')?.value?.trim();
   const tipo = document.getElementById('nc-tipo-entrega')?.value;
+  if(tipo !== 'cliente') return;
   
-  if(!localEntrega || tipo !== 'cliente') return;
+  // Priority: CEP > full address > local entrega field
+  let localEntrega = '';
+  if(clienteCEP) {
+    localEntrega = clienteCEP + ', Brasil';
+  } else if(clienteEndereco) {
+    localEntrega = clienteEndereco + ', Brasil';
+  } else {
+    localEntrega = document.getElementById('nc-local-entrega')?.value?.trim();
+  }
+  
+  if(!localEntrega) return;
   
   const resultEl = document.getElementById('distancia-result');
   const rotaEl = document.getElementById('distancia-rota');
@@ -1388,9 +1406,16 @@ function searchClientProposal(q){
   box.style.display = 'block';
 }
 
+let clienteCEP = '';
+let clienteEndereco = '';
+
 function selectClientProposal(id){
   const c = clients.find(x => x.id === id);
   if(!c) return;
+  
+  // Store CEP and address for distance calculation
+  clienteCEP = c.cep || '';
+  clienteEndereco = [c.street, c.number, c.neighborhood, c.city, c.state, c.cep].filter(Boolean).join(', ');
   
   // Fill form fields
   const set = (id, val) => { const el=document.getElementById(id); if(el) el.value=val||''; };
@@ -1399,6 +1424,11 @@ function selectClientProposal(id){
   set('nc-tel', c.phone);
   set('nc-cnpj', c.cpf_cnpj);
   set('nc-cidade', c.city && c.state ? c.city+' / '+c.state : c.city||'');
+  
+  // Set local entrega from client address
+  const localEntrega = clienteCEP ? clienteCEP : (c.city && c.state ? c.city+'/'+c.state : c.city||'');
+  const nc_local = document.getElementById('nc-local-entrega');
+  if(nc_local) nc_local.value = clienteEndereco || localEntrega;
   
   // Update search box
   document.getElementById('client-search').value = c.code + ' — ' + c.name;
