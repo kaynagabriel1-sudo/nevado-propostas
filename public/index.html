@@ -114,9 +114,9 @@ textarea.finput{resize:vertical;min-height:60px}
 
 /* ITEMS */
 .items-wrap{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:4px}
-.iheader{display:grid;grid-template-columns:90px 1fr 60px 95px 85px 28px;background:#F9FAFB;border-bottom:1px solid var(--border)}
+.iheader{display:grid;grid-template-columns:75px 1fr 45px 85px 60px 85px 55px 55px 80px 28px;background:#F9FAFB;border-bottom:1px solid var(--border)}
 .iheader span{padding:7px 10px;font-size:10px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.4px}
-.irow{display:grid;grid-template-columns:90px 1fr 60px 95px 85px 28px;border-bottom:1px solid #F3F4F6;align-items:center}
+.irow{display:grid;grid-template-columns:75px 1fr 45px 85px 60px 85px 55px 55px 80px 28px;border-bottom:1px solid #F3F4F6;align-items:center}
 .irow:last-child{border-bottom:none}
 .irow input{border:none;background:transparent;padding:7px 10px;font-size:12px;color:#374151;font-family:'Inter',sans-serif;outline:none;width:100%}
 .irow input:focus{background:#FEF2F2}
@@ -309,11 +309,20 @@ textarea.finput{resize:vertical;min-height:60px}
             <div class="fsec">
               <div class="sec-title"><i class="ti ti-package"></i> Produtos / Serviços</div>
               <div class="items-wrap">
-                <div class="iheader"><span>Cód.</span><span>Descrição</span><span>Qtd</span><span>Preço unit.</span><span>Total</span><span></span></div>
+                <div class="iheader"><span>Cód.</span><span>Descrição</span><span>Qtd</span><span>Custo</span><span>Margem%</span><span>Preço Venda</span><span>IPI%</span><span>ICMS%</span><span>Total</span><span></span></div>
                 <div id="items-body"></div>
                 <div style="padding:6px 8px;border-top:1px solid #F3F4F6"><button class="add-row" onclick="addRow()"><i class="ti ti-plus" style="font-size:12px"></i> Adicionar item</button></div>
               </div>
-              <div class="ifooter"><span class="ifooter-lbl">Total geral:</span><span class="ifooter-tot" id="grand-total">R$ 0,00</span></div>
+              <div class="ifooter" style="flex-direction:column;align-items:flex-end;gap:4px">
+                  <div style="display:flex;gap:16px;font-size:11px;color:#6B7280">
+                    <span>IPI: <strong id="tot-ipi">R$ 0,00</strong></span>
+                    <span>ICMS: <strong id="tot-icms">R$ 0,00</strong></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="ifooter-lbl">Total com impostos:</span>
+                    <span class="ifooter-tot" id="grand-total">R$ 0,00</span>
+                  </div>
+                </div>
             </div>
 
             <div class="fsec">
@@ -380,9 +389,12 @@ textarea.finput{resize:vertical;min-height:60px}
                   <div class="doc-cliente" id="pv-client">—</div>
                   <div class="doc-email-cli" id="pv-email">—</div>
                   <table class="doc-table">
-                    <thead><tr><th>Descrição</th><th>Qtd</th><th>Preço</th><th>Total</th></tr></thead>
-                    <tbody id="pv-items"><tr><td colspan="4" style="text-align:center;color:#9CA3AF;padding:12px;font-size:10px">Adicione produtos →</td></tr></tbody>
-                    <tfoot><tr class="doc-total-row"><td colspan="2"></td><td>Total Geral</td><td id="pv-total">R$ 0,00</td></tr></tfoot>
+                    <thead><tr><th>Cód.</th><th>Descrição</th><th>Qtd</th><th>Preço</th><th>IPI%</th><th>ICMS%</th><th>Total</th></tr></thead>
+                    <tbody id="pv-items"><tr><td colspan="7" style="text-align:center;color:#9CA3AF;padding:12px;font-size:10px">Adicione produtos →</td></tr></tbody>
+                    <tfoot>
+                      <tr style="background:#F9FAFB"><td colspan="5"></td><td style="padding:5px 8px;font-size:9px;color:#6B7280">IPI Total</td><td id="pv-ipi" style="padding:5px 8px;font-size:9px;font-weight:600">R$ 0,00</td></tr>
+                      <tr class="doc-total-row"><td colspan="5"></td><td>Total Geral</td><td id="pv-total">R$ 0,00</td></tr>
+                    </tfoot>
                   </table>
                   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;font-size:9px">
                     <div style="background:#F9FAFB;border-radius:4px;padding:6px 8px"><span style="color:var(--gray)">Validade: </span><strong id="pv-valid">—</strong></div>
@@ -730,26 +742,53 @@ function addRow(){
   const id=++itemCount;
   const div=document.createElement('div');
   div.className='irow'; div.id='ir'+id;
-  div.innerHTML=`<input placeholder="Código" style="font-size:11px" oninput="pvu()">
-    <input placeholder="Descrição do produto/serviço" oninput="calcTotal();pvu()">
-    <input type="number" value="1" min="1" style="text-align:center" oninput="calcTotal();pvu()">
-    <input type="number" placeholder="0,00" min="0" step="0.01" oninput="calcTotal();pvu()">
+  div.innerHTML=`<input placeholder="Código" style="font-size:10px" oninput="pvu()">
+    <input placeholder="Descrição do produto/serviço" style="font-size:11px" oninput="calcTotal();pvu()">
+    <input type="number" value="1" min="1" style="text-align:center;font-size:11px" oninput="calcTotal();pvu()">
+    <input type="number" placeholder="Custo" min="0" step="0.01" style="font-size:11px" oninput="calcPreco(this);calcTotal();pvu()">
+    <input type="number" value="0" step="1" title="0=50%, -10=60%, 10=40%" style="text-align:center;font-size:11px;background:#FFF9E6" oninput="calcPreco(this);calcTotal();pvu()">
+    <input type="number" placeholder="Venda" min="0" step="0.01" style="font-size:11px;background:#F0FDF4;font-weight:600" oninput="calcTotal();pvu()">
+    <input type="number" value="0" min="0" max="100" step="0.1" style="text-align:center;font-size:11px" oninput="calcTotal();pvu()">
+    <input type="number" value="12" min="0" max="100" step="0.1" style="text-align:center;font-size:11px" oninput="calcTotal();pvu()">
     <span class="itot" id="it${id}">—</span>
     <button class="del-btn" onclick="document.getElementById('ir${id}').remove();calcTotal();pvu()"><i class="ti ti-trash" style="font-size:12px"></i></button>`;
   document.getElementById('items-body').appendChild(div);
 }
 
+function calcPreco(input){
+  const row=input.closest('.irow');
+  if(!row) return;
+  const ins=row.querySelectorAll('input');
+  const custo=parseFloat(ins[3]?.value)||0;
+  const margem=parseFloat(ins[4]?.value)||0;
+  // margem 0 = 50%, -10 = 60%, 10 = 40%
+  const pct=50-margem;
+  const pvenda=custo*(1+pct/100);
+  if(ins[5]) ins[5].value=pvenda.toFixed(2);
+}
+
 function calcTotal(){
-  let t=0;
+  let t=0, tipi=0, ticms=0;
   document.querySelectorAll('.irow').forEach(r=>{
     const ins=r.querySelectorAll('input');
-    const sub=(parseFloat(ins[2]?.value)||0)*(parseFloat(ins[3]?.value)||0);
-    const sp=r.querySelector('[id^=it]'); if(sp) sp.textContent=sub>0?fmt(sub):'—';
-    t+=sub;
+    const qty=parseFloat(ins[2]?.value)||0;
+    const pvenda=parseFloat(ins[5]?.value)||0;
+    const ipi=parseFloat(ins[6]?.value)||0;
+    const icms=parseFloat(ins[7]?.value)||0;
+    const subtotal=qty*pvenda;
+    const vipi=subtotal*(ipi/100);
+    const vicms=subtotal*(icms/100);
+    const sp=r.querySelector('[id^=it]');
+    if(sp) sp.textContent=subtotal>0?fmt(subtotal+vipi):'—';
+    t+=subtotal; tipi+=vipi; ticms+=vicms;
   });
-  document.getElementById('grand-total').textContent=fmt(t);
-  document.getElementById('pv-total').textContent=fmt(t);
-  return t;
+  const total=t+tipi;
+  document.getElementById('grand-total').textContent=fmt(total);
+  if(document.getElementById('pv-total')) document.getElementById('pv-total').textContent=fmt(total);
+  // Update IPI/ICMS summary if elements exist
+  if(document.getElementById('tot-ipi')) document.getElementById('tot-ipi').textContent=fmt(tipi);
+  if(document.getElementById('tot-icms')) document.getElementById('tot-icms').textContent=fmt(ticms);
+  return total;
 }
 
 function pvu(){
@@ -765,12 +804,19 @@ function pvu(){
   const rows=[];
   document.querySelectorAll('.irow').forEach(r=>{
     const ins=r.querySelectorAll('input');
-    const code=ins[0]?.value; const desc=ins[1]?.value; const qty=parseFloat(ins[2]?.value)||0; const price=parseFloat(ins[3]?.value)||0;
-    if(desc&&(qty||price)) rows.push({desc,qty,price});
+    const code=ins[0]?.value; const desc=ins[1]?.value; const qty=parseFloat(ins[2]?.value)||0; const price=parseFloat(ins[5]?.value)||0; const ipi=parseFloat(ins[6]?.value)||0; const icms=parseFloat(ins[7]?.value)||0;
+    if(desc&&(qty||price)) rows.push({code,desc,qty,price,ipi,icms});
   });
+  let pipi=0;
   document.getElementById('pv-items').innerHTML=rows.length
-    ?rows.map(r=>`<tr><td>${r.desc}</td><td>${r.qty}</td><td>R$ ${r.price.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td><td>${fmt(r.qty*r.price)}</td></tr>`).join('')
-    :'<tr><td colspan="4" style="text-align:center;color:#9CA3AF;padding:12px;font-size:10px">Adicione produtos →</td></tr>';
+    ?rows.map(r=>{
+      const sub=r.qty*r.price;
+      const vipi=sub*(r.ipi/100);
+      pipi+=vipi;
+      return `<tr><td>${r.code||''}</td><td>${r.desc}</td><td>${r.qty}</td><td>R$ ${r.price.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td><td>${r.ipi||0}%</td><td>${r.icms||0}%</td><td>${fmt(sub+vipi)}</td></tr>`;
+    }).join('')
+    :'<tr><td colspan="7" style="text-align:center;color:#9CA3AF;padding:12px;font-size:10px">Adicione produtos →</td></tr>';
+  if(document.getElementById('pv-ipi')) document.getElementById('pv-ipi').textContent=fmt(pipi);
 }
 
 async function doSend(){
@@ -780,7 +826,7 @@ async function doSend(){
   const items=[];
   document.querySelectorAll('.irow').forEach(r=>{
     const ins=r.querySelectorAll('input');
-    items.push({code:ins[0].value||'',desc:ins[1].value||'Item',qty:parseFloat(ins[2].value)||1,price:parseFloat(ins[3].value)||0});
+    items.push({code:ins[0].value||'',desc:ins[1].value||'Item',qty:parseFloat(ins[2].value)||1,custo:parseFloat(ins[3].value)||0,margem:parseFloat(ins[4].value)||0,price:parseFloat(ins[5].value)||0,ipi:parseFloat(ins[6].value)||0,icms:parseFloat(ins[7].value)||0});
   });
   function getFormExtra(){
     return {
@@ -814,7 +860,7 @@ async function doSave(){
   const items=[];
   document.querySelectorAll('.irow').forEach(r=>{
     const ins=r.querySelectorAll('input');
-    items.push({code:ins[0].value||'',desc:ins[1].value||'Item',qty:parseFloat(ins[2].value)||1,price:parseFloat(ins[3].value)||0});
+    items.push({code:ins[0].value||'',desc:ins[1].value||'Item',qty:parseFloat(ins[2].value)||1,custo:parseFloat(ins[3].value)||0,margem:parseFloat(ins[4].value)||0,price:parseFloat(ins[5].value)||0,ipi:parseFloat(ins[6].value)||0,icms:parseFloat(ins[7].value)||0});
   });
   try{
     const res=await api('/api/proposals','POST',{client_name,client_email,items,sendEmail:false,validity:document.getElementById('nc-validity').value,notes:document.getElementById('nc-obs').value});
