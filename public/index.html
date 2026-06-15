@@ -93,6 +93,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--dark);heigh
 .client-dropdown-item{padding:10px 12px;cursor:pointer;border-bottom:1px solid #F3F4F6;font-size:12px;transition:background .1s}
 .client-dropdown-item:hover{background:#FEF2F2}
 .client-dropdown-item:last-child{border-bottom:none}
+.prod-suggest{position:absolute;background:#fff;border:1px solid var(--border);border-radius:6px;z-index:100;min-width:300px;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-height:180px;overflow-y:auto}
+.prod-suggest-item{padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid #F3F4F6}
+.prod-suggest-item:hover{background:#FEF2F2}
+.prod-suggest-item:last-child{border-bottom:none}
+.prod-code{font-family:monospace;font-weight:700;color:var(--red);margin-right:6px}
 .client-code{font-family:monospace;font-weight:700;color:var(--red);margin-right:8px}
 .sbox input::placeholder{color:#9CA3AF}
 .sbox i{font-size:13px;color:#9CA3AF}
@@ -236,6 +241,7 @@ textarea.finput{resize:vertical;min-height:60px}
       <div class="sb-sec admin-only">Gestão</div>
       <div class="sb-item admin-only" onclick="nav('vendedores',this)"><i class="ti ti-users"></i> Vendedores</div>
       <div class="sb-item admin-only" onclick="nav('metas',this)"><i class="ti ti-target"></i> Metas</div>
+      <div class="sb-item admin-only" onclick="nav('produtos',this)"><i class="ti ti-package"></i> Produtos</div>
       <div class="sb-item" onclick="nav('avaliacoes',this)"><i class="ti ti-star"></i> Avaliações</div>
       <div class="sb-item" onclick="nav('relatorios',this)"><i class="ti ti-chart-bar"></i> Relatórios</div>
       <div class="sb-sec">Config.</div>
@@ -518,6 +524,22 @@ textarea.finput{resize:vertical;min-height:60px}
         </div>
       </div>
 
+      <!-- PRODUTOS -->
+      <div class="page admin-only-page" id="p-produtos">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+          <button class="btn btn-primary" onclick="openAddProduct()"><i class="ti ti-plus" style="font-size:12px"></i> Novo Produto</button>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">Produtos cadastrados</span>
+            <div class="card-actions">
+              <div class="sbox"><i class="ti ti-search"></i><input placeholder="Buscar produto..." oninput="filterProducts(this.value)"></div>
+            </div>
+          </div>
+          <div id="product-list"></div>
+        </div>
+      </div>
+
       <!-- RELATORIOS -->
       <div class="page" id="p-relatorios">
         <div class="card" style="margin-bottom:12px">
@@ -672,6 +694,24 @@ textarea.finput{resize:vertical;min-height:60px}
   </div>
 </div>
 
+<!-- MODAL PRODUTO -->
+<div class="ov" id="ov-product">
+  <div class="modal">
+    <div class="modal-h"><h2 id="product-modal-title">Novo Produto</h2><button class="close-x" onclick="closeOv('ov-product')">×</button></div>
+    <div class="fgrid" style="grid-template-columns:1fr 1fr">
+      <div class="fg"><label class="flabel">Código *</label><input class="finput" id="pr-code" placeholder="Ex: CHOC-001"></div>
+      <div class="fg"><label class="flabel">Unidade</label><input class="finput" id="pr-unit" placeholder="Ex: CX, KG, UN"></div>
+      <div class="fg" style="grid-column:1/-1"><label class="flabel">Descrição *</label><input class="finput" id="pr-desc" placeholder="Descrição completa do produto"></div>
+      <div class="fg"><label class="flabel">Custo padrão (R$)</label><input class="finput" type="number" id="pr-cost" placeholder="0,00" min="0" step="0.01"></div>
+      <div class="fg"><label class="flabel">Margem padrão (%)</label><input class="finput" type="number" id="pr-margin" placeholder="0" value="0"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeOv('ov-product')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveProduct()"><i class="ti ti-device-floppy" style="font-size:12px"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-box" id="toast"></div>
 
 <script>
@@ -702,6 +742,7 @@ let itemCount=0, viewingId=null;
   const v=new Date(); v.setDate(v.getDate()+30);
   document.getElementById('nc-validity').value=v.toISOString().split('T')[0];
   await loadAll();
+  await loadProducts();
   loadUserPhoto();
   nav('dash',document.querySelector('.sb-item'));
   initForm();
@@ -723,7 +764,7 @@ async function loadAll(){
 function nav(page,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.getElementById('p-'+page)?.classList.add('on');
-  const titles={dash:'Dashboard',clientes:'Clientes',propostas:'Propostas',nova:'Nova Proposta',vendedores:'Vendedores',metas:'Metas',avaliacoes:'Avaliações',relatorios:'Relatórios',config:'Configurações'};
+  const titles={dash:'Dashboard',clientes:'Clientes',propostas:'Propostas',nova:'Nova Proposta',vendedores:'Vendedores',metas:'Metas',produtos:'Produtos',avaliacoes:'Avaliações',relatorios:'Relatórios',config:'Configurações'};
   document.getElementById('ptitle').textContent=titles[page]||page;
   document.getElementById('btn-export').style.display=page==='relatorios'?'':'none';
   if(page==='dash') renderDash();
@@ -732,6 +773,7 @@ function nav(page,el){
   if(page==='relatorios') loadReport();
   if(page==='clientes') renderClients();
   if(page==='metas') loadMetas();
+  if(page==='produtos') renderProducts();
   if(page==='avaliacoes') renderAvaliacoes();
   if(page==='nova'){ if(!clients.length) loadClients(); initForm(); }
 }
@@ -874,7 +916,7 @@ function addRow(){
   const id=++itemCount;
   const div=document.createElement('div');
   div.className='irow'; div.id='ir'+id;
-  div.innerHTML=`<input placeholder="Código" style="font-size:10px" oninput="pvu()">
+  div.innerHTML=`<input placeholder="Código" style="font-size:10px" oninput="lookupProduct(this);pvu()" onkeydown="navProductSuggest(event,this)">
     <input placeholder="Descrição do produto/serviço" style="font-size:11px" oninput="calcTotal();pvu()">
     <input type="number" value="1" min="1" style="text-align:center;font-size:11px" oninput="calcTotal();pvu()">
     <input type="number" placeholder="Custo" min="0" step="0.01" style="font-size:11px" oninput="calcPreco(this);calcTotal();pvu()">
@@ -1656,6 +1698,158 @@ function updateAvatarDisplay(photoUrl){
 function loadUserPhoto(){
   if(me.photo){
     updateAvatarDisplay(me.photo);
+  }
+}
+
+
+// PRODUTOS
+let products = [], editingProductId = null;
+
+async function loadProducts(){
+  try { products = await api('/api/products'); } catch(e) { products = []; }
+}
+
+async function renderProducts(){
+  await loadProducts();
+  const el = document.getElementById('product-list');
+  if(!el) return;
+  if(!products.length){
+    el.innerHTML = '<div style="padding:24px;text-align:center;font-size:12px;color:#9CA3AF">Nenhum produto cadastrado</div>';
+    return;
+  }
+  el.innerHTML = '<table><thead><tr><th>Código</th><th>Descrição</th><th>Unidade</th><th>Custo</th><th>Margem</th><th></th></tr></thead><tbody>'+
+    products.map(p => `<tr>
+      <td style="font-family:monospace;font-weight:700;color:var(--red)">${p.code}</td>
+      <td><strong style="font-size:12px">${p.description}</strong></td>
+      <td style="font-size:12px">${p.unit||'—'}</td>
+      <td style="font-size:12px">${p.cost>0?fmt(p.cost):'—'}</td>
+      <td style="font-size:12px">${p.margin||0}%</td>
+      <td>
+        <button class="btn btn-sm" onclick="editProduct(${p.id})"><i class="ti ti-edit" style="font-size:11px"></i></button>
+        <button class="btn btn-sm" onclick="deleteProduct(${p.id})" style="color:var(--rec)"><i class="ti ti-trash" style="font-size:11px"></i></button>
+      </td>
+    </tr>`).join('') + '</tbody></table>';
+}
+
+function filterProducts(v){
+  const q = v.toLowerCase();
+  document.querySelectorAll('#product-list tbody tr').forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function openAddProduct(){
+  editingProductId = null;
+  document.getElementById('product-modal-title').textContent = 'Novo Produto';
+  ['pr-code','pr-desc','pr-unit'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('pr-cost').value = '';
+  document.getElementById('pr-margin').value = '0';
+  document.getElementById('ov-product').classList.add('open');
+}
+
+function editProduct(id){
+  const p = products.find(x => x.id === id);
+  if(!p) return;
+  editingProductId = id;
+  document.getElementById('product-modal-title').textContent = 'Editar Produto';
+  document.getElementById('pr-code').value = p.code || '';
+  document.getElementById('pr-desc').value = p.description || '';
+  document.getElementById('pr-unit').value = p.unit || '';
+  document.getElementById('pr-cost').value = p.cost || '';
+  document.getElementById('pr-margin').value = p.margin || 0;
+  document.getElementById('ov-product').classList.add('open');
+}
+
+async function saveProduct(){
+  const code = document.getElementById('pr-code').value.trim().toUpperCase();
+  const description = document.getElementById('pr-desc').value.trim();
+  if(!code || !description){ showToast('⚠ Preencha código e descrição'); return; }
+  const body = {
+    code, description,
+    unit: document.getElementById('pr-unit').value,
+    cost: parseFloat(document.getElementById('pr-cost').value) || 0,
+    margin: parseFloat(document.getElementById('pr-margin').value) || 0,
+  };
+  try {
+    if(editingProductId){
+      await api('/api/products/'+editingProductId, 'PUT', body);
+      showToast('✓ Produto atualizado!');
+    } else {
+      await api('/api/products', 'POST', body);
+      showToast('✓ Produto cadastrado!');
+    }
+    closeOv('ov-product');
+    renderProducts();
+  } catch(e) { showToast('Erro: '+e.message); }
+}
+
+async function deleteProduct(id){
+  if(!confirm('Excluir este produto?')) return;
+  try {
+    await api('/api/products/'+id, 'DELETE');
+    showToast('✓ Produto removido!');
+    renderProducts();
+  } catch(e) { showToast('Erro: '+e.message); }
+}
+
+// AUTOCOMPLETE DE PRODUTO NA PROPOSTA
+function lookupProduct(input){
+  const code = input.value.trim().toUpperCase();
+  // Remove any existing suggestion box
+  const existing = input.parentElement.querySelector('.prod-suggest');
+  if(existing) existing.remove();
+  
+  if(!code || code.length < 2) return;
+  
+  const matches = products.filter(p => 
+    p.code.toUpperCase().includes(code) || 
+    p.description.toLowerCase().includes(code.toLowerCase())
+  ).slice(0, 6);
+  
+  if(!matches.length) return;
+  
+  const box = document.createElement('div');
+  box.className = 'prod-suggest';
+  box.style.cssText = 'position:absolute;z-index:100;min-width:300px';
+  box.innerHTML = matches.map(p => 
+    `<div class="prod-suggest-item" onclick="selectProduct(this.closest('.irow'),${p.id})">
+      <span class="prod-code">${p.code}</span>${p.description}
+      ${p.unit?`<span style="color:#9CA3AF;font-size:10px"> (${p.unit})</span>`:''}
+    </div>`
+  ).join('');
+  
+  input.parentElement.style.position = 'relative';
+  input.parentElement.appendChild(box);
+  
+  // Close on outside click
+  setTimeout(()=>{
+    document.addEventListener('click', function handler(e){
+      if(!box.contains(e.target)){ box.remove(); document.removeEventListener('click', handler); }
+    });
+  }, 100);
+}
+
+function selectProduct(row, id){
+  const p = products.find(x => x.id === id);
+  if(!p || !row) return;
+  const ins = row.querySelectorAll('input');
+  if(ins[0]) ins[0].value = p.code;
+  if(ins[1]) ins[1].value = p.description;
+  if(p.cost > 0 && ins[3]) ins[3].value = p.cost;
+  if(ins[4]) ins[4].value = p.margin || 0;
+  // Remove suggestion box
+  const box = row.querySelector('.prod-suggest');
+  if(box) box.remove();
+  // Calculate price
+  calcPreco(ins[3]);
+  calcTotal();
+  pvu();
+}
+
+function navProductSuggest(e, input){
+  if(e.key === 'Escape'){
+    const box = input.parentElement.querySelector('.prod-suggest');
+    if(box) box.remove();
   }
 }
 

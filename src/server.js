@@ -25,6 +25,7 @@ app.use('/api/reports',   require('./routes/reports'));
 app.use('/api/clients',   require('./routes/clients'));
 app.use('/api/reviews',   require('./routes/reviews'));
 app.use('/api/goals',     require('./routes/goals'));
+app.use('/api/products',  require('./routes/products'));
 
 app.get('/login', (req, res) =>
   res.sendFile(path.join(__dirname, '../public/login.html')));
