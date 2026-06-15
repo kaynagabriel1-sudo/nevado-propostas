@@ -691,6 +691,7 @@ async function loadAll(){
     api('/api/proposals'),
     me.role==='admin'?api('/api/sellers'):Promise.resolve([me])
   ]);
+  await loadClients();
   const fsel=document.getElementById('filter-seller');
   fsel.innerHTML='<option value="">Todos vendedores</option>'+sellers.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   const msel=document.getElementById('nc-seller');
@@ -711,7 +712,7 @@ function nav(page,el){
   if(page==='clientes') renderClients();
   if(page==='metas') loadMetas();
   if(page==='avaliacoes') renderAvaliacoes();
-  if(page==='nova') initForm();
+  if(page==='nova'){ if(!clients.length) loadClients(); initForm(); }
 }
 
 function fmt(n){return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
