@@ -1147,10 +1147,11 @@ async function deleteClient(id){
 
 
 // WHATSAPP
-function buildWhatsMsg(name, proposalId, items, total, pagto, prazo, validity){
+function buildWhatsMsg(name, proposalId, items, total, pagto, prazo, validity, pdfLink){
   const itens = items.map(i=>`• ${i.desc} x${i.qty} = R$ ${(i.qty*i.price).toLocaleString('pt-BR',{minimumFractionDigits:2})}`).join('\n');
   const val = new Date(validity);
   const valStr = validity ? val.toLocaleDateString('pt-BR') : '—';
+  const pdfLine = pdfLink ? `\n📄 *PDF da proposta:* ${pdfLink}` : '';
   return `Olá ${name}! 😊
 
 Segue nossa *Proposta Comercial ${proposalId}* — Valle Nevado Chocolates 🍫
@@ -1161,7 +1162,7 @@ ${itens}
 *Total: R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}*
 ${pagto?'*Pagamento:* '+pagto:''}
 ${prazo?'*Prazo de entrega:* '+prazo:''}
-${validity?'*Validade:* '+valStr:''}
+${validity?'*Validade:* '+valStr:''}${pdfLine}
 
 Em caso de dúvidas, estamos à disposição!
 📞 (15) 3261-3318
@@ -1186,7 +1187,7 @@ function doWhatsApp(){
   
   const total = items.reduce((s,i)=>s+i.qty*i.price,0);
   const propId = 'Nova Proposta';
-  const msg = buildWhatsMsg(name, propId, items, total, pagto, prazo, validity);
+  const msg = buildWhatsMsg(name, propId, items, total, pagto, prazo, validity, null);
   const phone = tel.replace(/\D/g,'');
   const phoneFormatted = phone.startsWith('55') ? phone : '55'+phone;
   const url = `https://wa.me/${phoneFormatted}?text=${encodeURIComponent(msg)}`;
@@ -1197,7 +1198,9 @@ async function quickWhatsApp(id, clientName, tel){
   try{
     const p = await api('/api/proposals/'+id);
     const items = p.items||[];
-    const msg = buildWhatsMsg(p.client_name, p.id, items, p.value, p.pagto, p.prazo, p.validity);
+    const baseUrl = window.location.origin;
+    const pdfLink = `${baseUrl}/api/proposals/${p.id}/pdf`;
+    const msg = buildWhatsMsg(p.client_name, p.id, items, p.value, p.pagto, p.prazo, p.validity, pdfLink);
     const phone = (p.client_tel||tel||'').replace(/\D/g,'');
     if(!phone){ showToast('⚠ Cliente sem telefone cadastrado'); return; }
     const phoneFormatted = phone.startsWith('55') ? phone : '55'+phone;
