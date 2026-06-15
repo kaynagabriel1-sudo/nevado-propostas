@@ -4,6 +4,11 @@ const bcrypt  = require('bcryptjs');
 const db      = require('../database');
 const router  = express.Router();
 
+function requireAuth(req, res, next) {
+  if (!req.session.userId) return res.status(401).json({ error: 'Não autenticado.' });
+  next();
+}
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -26,20 +31,36 @@ router.post('/logout', (req, res) => {
 router.get('/me', async (req, res) => {
   try {
     if (!req.session.userId) return res.status(401).json({ error: 'Não autenticado.' });
-    const user = await db.prepare('SELECT id, name, email, role, color, goal FROM users WHERE id = $1').get(req.session.userId);
+    const user = await db.prepare('SELECT id, name, email, role, color, goal, photo FROM users WHERE id = $1').get(req.session.userId);
     res.json(user);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.post('/change-password', async (req, res) => {
+router.post('/change-password', requireAuth, async (req, res) => {
   try {
-    if (!req.session.userId) return res.status(401).json({ error: 'Não autenticado.' });
     const { current, next: newPass } = req.body;
     const user = await db.prepare('SELECT * FROM users WHERE id = $1').get(req.session.userId);
     if (!bcrypt.compareSync(current, user.password))
       return res.status(400).json({ error: 'Senha atual incorreta.' });
     const hash = bcrypt.hashSync(newPass, 10);
     await db.prepare('UPDATE users SET password = $1 WHERE id = $2').run(hash, req.session.userId);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Photo routes
+router.post('/photo', requireAuth, async (req, res) => {
+  try {
+    const { photo } = req.body;
+    if (!photo) return res.status(400).json({ error: 'Foto não fornecida.' });
+    await db.prepare('UPDATE users SET photo = $1 WHERE id = $2').run(photo, req.session.userId);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+router.delete('/photo', requireAuth, async (req, res) => {
+  try {
+    await db.prepare('UPDATE users SET photo = NULL WHERE id = $1').run(req.session.userId);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

@@ -15,6 +15,7 @@ const SCHEMA = `
     color TEXT DEFAULT '#C8102E',
     goal REAL DEFAULT 40000,
     active INTEGER DEFAULT 1,
+    photo TEXT,
     created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
   );
   CREATE TABLE IF NOT EXISTS proposals (
@@ -66,14 +67,6 @@ const SCHEMA = `
     comentario TEXT,
     created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
   );
-  CREATE TABLE IF NOT EXISTS seller_goals (
-    id SERIAL PRIMARY KEY,
-    seller_id INTEGER NOT NULL,
-    year INTEGER NOT NULL,
-    month INTEGER NOT NULL,
-    goal REAL DEFAULT 0,
-    UNIQUE(seller_id, year, month)
-  );
   CREATE TABLE IF NOT EXISTS email_logs (
     id SERIAL PRIMARY KEY,
     proposal_id TEXT,
@@ -95,14 +88,7 @@ class DB {
       await pool.query("ALTER TABLE proposals ADD COLUMN IF NOT EXISTS review_token TEXT");
     } catch(e) {}
     try {
-      await pool.query(`CREATE TABLE IF NOT EXISTS seller_goals (
-        id SERIAL PRIMARY KEY,
-        seller_id INTEGER NOT NULL,
-        year INTEGER NOT NULL,
-        month INTEGER NOT NULL,
-        goal REAL DEFAULT 0,
-        UNIQUE(seller_id, year, month)
-      )`);
+      await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT");
     } catch(e) {}
     this._ready = true;
     return this;
