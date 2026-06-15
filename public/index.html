@@ -230,6 +230,7 @@ textarea.finput{resize:vertical;min-height:60px}
       <div class="sb-item" onclick="nav('clientes',this)"><i class="ti ti-address-book"></i> Clientes</div>
       <div class="sb-sec admin-only">Gestão</div>
       <div class="sb-item admin-only" onclick="nav('vendedores',this)"><i class="ti ti-users"></i> Vendedores</div>
+      <div class="sb-item admin-only" onclick="nav('metas',this)"><i class="ti ti-target"></i> Metas</div>
       <div class="sb-item" onclick="nav('avaliacoes',this)"><i class="ti ti-star"></i> Avaliações</div>
       <div class="sb-item" onclick="nav('relatorios',this)"><i class="ti ti-chart-bar"></i> Relatórios</div>
       <div class="sb-sec">Config.</div>
@@ -461,6 +462,27 @@ textarea.finput{resize:vertical;min-height:60px}
         <div class="sellers-grid" id="sel-grid"></div>
       </div>
 
+      <!-- METAS -->
+      <div class="page admin-only-page" id="p-metas">
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-head">
+            <span class="card-title">Metas Mensais por Vendedora</span>
+            <div class="card-actions">
+              <select class="fsel" id="meta-month" onchange="loadMetas()">
+                <option value="1">Janeiro</option><option value="2">Fevereiro</option><option value="3">Março</option>
+                <option value="4">Abril</option><option value="5">Maio</option><option value="6">Junho</option>
+                <option value="7">Julho</option><option value="8">Agosto</option><option value="9">Setembro</option>
+                <option value="10">Outubro</option><option value="11">Novembro</option><option value="12">Dezembro</option>
+              </select>
+              <select class="fsel" id="meta-year" onchange="loadMetas()">
+                <option>2025</option><option selected>2026</option><option>2027</option>
+              </select>
+            </div>
+          </div>
+          <div id="metas-grid" style="padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
+        </div>
+      </div>
+
       <!-- RELATORIOS -->
       <div class="page" id="p-relatorios">
         <div class="card" style="margin-bottom:12px">
@@ -650,7 +672,7 @@ async function loadAll(){
 function nav(page,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.getElementById('p-'+page)?.classList.add('on');
-  const titles={dash:'Dashboard',clientes:'Clientes',propostas:'Propostas',nova:'Nova Proposta',vendedores:'Vendedores',avaliacoes:'Avaliações',relatorios:'Relatórios',config:'Configurações'};
+  const titles={dash:'Dashboard',clientes:'Clientes',propostas:'Propostas',nova:'Nova Proposta',vendedores:'Vendedores',metas:'Metas',avaliacoes:'Avaliações',relatorios:'Relatórios',config:'Configurações'};
   document.getElementById('ptitle').textContent=titles[page]||page;
   document.getElementById('btn-export').style.display=page==='relatorios'?'':'none';
   if(page==='dash') renderDash();
@@ -658,6 +680,7 @@ function nav(page,el){
   if(page==='vendedores') renderSellers();
   if(page==='relatorios') loadReport();
   if(page==='clientes') renderClients();
+  if(page==='metas') loadMetas();
   if(page==='avaliacoes') renderAvaliacoes();
   if(page==='nova') initForm();
 }
@@ -1008,6 +1031,71 @@ async function api(url,method='GET',body=null){
   return data;
 }
 
+
+
+// METAS
+async function loadMetas(){
+  const month = document.getElementById('meta-month')?.value || (new Date().getMonth()+1);
+  const year = document.getElementById('meta-year')?.value || new Date().getFullYear();
+  const grid = document.getElementById('metas-grid');
+  if(!grid) return;
+
+  try {
+    const data = await api(`/api/goals?year=${year}&month=${month}`);
+    
+    // Get proposals for this month to show progress
+    const allProposals = await api(`/api/proposals?month=${String(month).padStart(2,'0')}&year=${year}`);
+    
+    grid.innerHTML = data.map(s => {
+      const myProps = allProposals.filter(p => p.seller_id === s.id && p.status === 'Aprovada');
+      const achieved = myProps.reduce((sum, p) => sum + p.value, 0);
+      const goal = s.monthly_goal || 0;
+      const pct = goal > 0 ? Math.min(100, Math.round(achieved/goal*100)) : 0;
+      const color = s.color || '#C8102E';
+      
+      return `<div class="sc" style="border-top-color:${color}">
+        <div class="sc-head">
+          <div class="av" style="width:38px;height:38px;font-size:12px;background:${color}">${ini(s.name)}</div>
+          <div><div class="sc-name">${s.name}</div><div class="sc-role">Vendedora</div></div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px">
+            <span style="color:#6B7280">Meta: <strong>${fmt(goal)}</strong></span>
+            <span style="color:${pct>=100?'#16A34A':'#374151'}">${pct}%</span>
+          </div>
+          <div class="prog"><div class="prog-f" style="width:${pct}%;background:${color}"></div></div>
+          <div style="font-size:11px;color:#6B7280;margin-top:4px">Realizado: <strong style="color:${pct>=100?'#16A34A':'#374151'}">${fmt(achieved)}</strong></div>
+        </div>
+        <div style="border-top:1px solid #F3F4F6;padding-top:10px">
+          <label style="font-size:11px;color:#6B7280;display:block;margin-bottom:4px">Definir meta para este mês:</label>
+          <div style="display:flex;gap:6px">
+            <input type="number" class="finput" id="goal-${s.id}" value="${goal}" placeholder="R$ 0,00" min="0" step="1000" style="font-size:12px">
+            <button class="btn btn-primary btn-sm" onclick="saveMeta(${s.id})">Salvar</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Set current month/year in selects
+    document.getElementById('meta-month').value = month;
+    document.getElementById('meta-year').value = year;
+
+  } catch(e) { 
+    if(grid) grid.innerHTML = '<div style="padding:24px;color:#DC2626">Erro ao carregar metas: '+e.message+'</div>';
+  }
+}
+
+async function saveMeta(sellerId){
+  const month = document.getElementById('meta-month')?.value;
+  const year = document.getElementById('meta-year')?.value;
+  const goal = parseFloat(document.getElementById('goal-'+sellerId)?.value) || 0;
+  
+  try {
+    await api('/api/goals', 'POST', { seller_id: sellerId, year: parseInt(year), month: parseInt(month), goal });
+    showToast('✅ Meta salva com sucesso!');
+    loadMetas();
+  } catch(e) { showToast('Erro: '+e.message); }
+}
 
 // AVALIACOES
 let avaliacoes = [];
