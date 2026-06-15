@@ -114,9 +114,9 @@ textarea.finput{resize:vertical;min-height:60px}
 
 /* ITEMS */
 .items-wrap{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:4px}
-.iheader{display:grid;grid-template-columns:1fr 60px 95px 85px 28px;background:#F9FAFB;border-bottom:1px solid var(--border)}
+.iheader{display:grid;grid-template-columns:90px 1fr 60px 95px 85px 28px;background:#F9FAFB;border-bottom:1px solid var(--border)}
 .iheader span{padding:7px 10px;font-size:10px;font-weight:600;color:var(--gray);text-transform:uppercase;letter-spacing:.4px}
-.irow{display:grid;grid-template-columns:1fr 60px 95px 85px 28px;border-bottom:1px solid #F3F4F6;align-items:center}
+.irow{display:grid;grid-template-columns:90px 1fr 60px 95px 85px 28px;border-bottom:1px solid #F3F4F6;align-items:center}
 .irow:last-child{border-bottom:none}
 .irow input{border:none;background:transparent;padding:7px 10px;font-size:12px;color:#374151;font-family:'Inter',sans-serif;outline:none;width:100%}
 .irow input:focus{background:#FEF2F2}
@@ -309,7 +309,7 @@ textarea.finput{resize:vertical;min-height:60px}
             <div class="fsec">
               <div class="sec-title"><i class="ti ti-package"></i> Produtos / Serviços</div>
               <div class="items-wrap">
-                <div class="iheader"><span>Descrição</span><span>Qtd</span><span>Preço unit.</span><span>Total</span><span></span></div>
+                <div class="iheader"><span>Cód.</span><span>Descrição</span><span>Qtd</span><span>Preço unit.</span><span>Total</span><span></span></div>
                 <div id="items-body"></div>
                 <div style="padding:6px 8px;border-top:1px solid #F3F4F6"><button class="add-row" onclick="addRow()"><i class="ti ti-plus" style="font-size:12px"></i> Adicionar item</button></div>
               </div>
@@ -730,7 +730,8 @@ function addRow(){
   const id=++itemCount;
   const div=document.createElement('div');
   div.className='irow'; div.id='ir'+id;
-  div.innerHTML=`<input placeholder="Descrição do produto/serviço" oninput="calcTotal();pvu()">
+  div.innerHTML=`<input placeholder="Código" style="font-size:11px" oninput="pvu()">
+    <input placeholder="Descrição do produto/serviço" oninput="calcTotal();pvu()">
     <input type="number" value="1" min="1" style="text-align:center" oninput="calcTotal();pvu()">
     <input type="number" placeholder="0,00" min="0" step="0.01" oninput="calcTotal();pvu()">
     <span class="itot" id="it${id}">—</span>
@@ -742,7 +743,7 @@ function calcTotal(){
   let t=0;
   document.querySelectorAll('.irow').forEach(r=>{
     const ins=r.querySelectorAll('input');
-    const sub=(parseFloat(ins[1]?.value)||0)*(parseFloat(ins[2]?.value)||0);
+    const sub=(parseFloat(ins[2]?.value)||0)*(parseFloat(ins[3]?.value)||0);
     const sp=r.querySelector('[id^=it]'); if(sp) sp.textContent=sub>0?fmt(sub):'—';
     t+=sub;
   });
@@ -764,7 +765,7 @@ function pvu(){
   const rows=[];
   document.querySelectorAll('.irow').forEach(r=>{
     const ins=r.querySelectorAll('input');
-    const desc=ins[0]?.value; const qty=parseFloat(ins[1]?.value)||0; const price=parseFloat(ins[2]?.value)||0;
+    const code=ins[0]?.value; const desc=ins[1]?.value; const qty=parseFloat(ins[2]?.value)||0; const price=parseFloat(ins[3]?.value)||0;
     if(desc&&(qty||price)) rows.push({desc,qty,price});
   });
   document.getElementById('pv-items').innerHTML=rows.length
@@ -779,7 +780,7 @@ async function doSend(){
   const items=[];
   document.querySelectorAll('.irow').forEach(r=>{
     const ins=r.querySelectorAll('input');
-    items.push({desc:ins[0].value||'Item',qty:parseFloat(ins[1].value)||1,price:parseFloat(ins[2].value)||0});
+    items.push({code:ins[0].value||'',desc:ins[1].value||'Item',qty:parseFloat(ins[2].value)||1,price:parseFloat(ins[3].value)||0});
   });
   function getFormExtra(){
     return {
@@ -813,7 +814,7 @@ async function doSave(){
   const items=[];
   document.querySelectorAll('.irow').forEach(r=>{
     const ins=r.querySelectorAll('input');
-    items.push({desc:ins[0].value||'Item',qty:parseFloat(ins[1].value)||1,price:parseFloat(ins[2].value)||0});
+    items.push({code:ins[0].value||'',desc:ins[1].value||'Item',qty:parseFloat(ins[2].value)||1,price:parseFloat(ins[3].value)||0});
   });
   try{
     const res=await api('/api/proposals','POST',{client_name,client_email,items,sendEmail:false,validity:document.getElementById('nc-validity').value,notes:document.getElementById('nc-obs').value});
