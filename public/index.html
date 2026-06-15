@@ -1013,7 +1013,11 @@ function renderSellers(){
         <div class="av" style="width:38px;height:38px;font-size:12px;background:${s.photo?'transparent':s.color||'#C8102E'};padding:${s.photo?'0':''}">
           ${s.photo?`<img src="${s.photo}" style="width:38px;height:38px;border-radius:50%;object-fit:cover">`:ini(s.name)}
         </div>
-        <div><div class="sc-name">${s.name}</div><div class="sc-role">${s.role||'Vendedor'}</div></div>
+        <div style="flex:1"><div class="sc-name">${s.name}</div><div class="sc-role">${s.role||'Vendedor'}</div></div>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-sm" onclick="openEditSeller(${s.id})" title="Editar"><i class="ti ti-edit" style="font-size:11px"></i></button>
+          <button class="btn btn-sm" onclick="deleteSeller(${s.id},'${s.name}')" title="Excluir" style="color:var(--rec)"><i class="ti ti-trash" style="font-size:11px"></i></button>
+        </div>
       </div>
       <div class="sc-stats">
         <div class="sc-stat"><div class="sc-sl">Propostas</div><div class="sc-sv">${myP.length}</div></div>
