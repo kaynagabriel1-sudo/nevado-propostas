@@ -97,7 +97,7 @@ router.post('/:id/send', requireAuth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/:id/pdf', requireAuth, async (req, res) => {
+router.get('/:id/pdf', async (req, res) => {
   try {
     const p = await db.prepare('SELECT * FROM proposals WHERE id = $1').get(req.params.id);
     if (!p) return res.status(404).json({ error: 'Proposta não encontrada.' });
