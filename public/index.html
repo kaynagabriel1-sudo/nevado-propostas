@@ -379,7 +379,36 @@ textarea.finput{resize:vertical;min-height:60px}
                 </div>
                 <div class="fg"><label class="flabel">Validade da proposta</label><input class="finput" type="date" id="nc-validity" oninput="pvu()"></div>
                 <div class="fg"><label class="flabel">Prazo de entrega</label><input class="finput" id="nc-prazo" placeholder="Ex: 7 dias úteis" oninput="pvu()"></div>
-                <div class="fg"><label class="flabel">Local de entrega</label><input class="finput" id="nc-local-entrega" placeholder="Ex: Porto Feliz/SP"></div>
+                <div class="fg"><label class="flabel">Tipo de Frete</label>
+                  <select class="finput" id="nc-frete" onchange="onFreteChange()">
+                    <option value="">Selecionar...</option>
+                    <option value="CIF">CIF — Frete por conta do vendedor</option>
+                    <option value="FOB">FOB — Frete por conta do comprador</option>
+                  </select>
+                </div>
+                <div class="fg"><label class="flabel">Tipo de Entrega</label>
+                  <select class="finput" id="nc-tipo-entrega" onchange="onEntregaChange()">
+                    <option value="">Selecionar...</option>
+                    <option value="cliente">Entrega no cliente</option>
+                    <option value="retirada">Retirada na fábrica</option>
+                    <option value="transportadora">Via transportadora</option>
+                  </select>
+                </div>
+                <div class="fg full" id="box-local-entrega">
+                  <label class="flabel">Local de entrega</label>
+                  <input class="finput" id="nc-local-entrega" placeholder="Ex: Porto Feliz/SP">
+                </div>
+                <div class="fg full" id="box-distancia" style="display:none">
+                  <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+                    <i class="ti ti-map-pin" style="font-size:20px;color:#16A34A"></i>
+                    <div>
+                      <div style="font-size:11px;color:#16A34A;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Distância estimada</div>
+                      <div id="distancia-result" style="font-size:15px;font-weight:700;color:#0f1d3a">Calculando...</div>
+                      <div id="distancia-rota" style="font-size:11px;color:#6B7280;margin-top:2px"></div>
+                    </div>
+                    <button onclick="calcularDistancia()" class="btn btn-sm" style="margin-left:auto"><i class="ti ti-refresh" style="font-size:11px"></i> Recalcular</button>
+                  </div>
+                </div>
                 <div class="fg"><label class="flabel">Valor mínimo do pedido</label><input class="finput" id="nc-valor-minimo" placeholder="Ex: R$ 500,00"></div>
                 <div class="fg full"><label class="flabel">Observações</label><textarea class="finput" id="nc-obs" placeholder="Condições especiais, garantias, etc." oninput="pvu()"></textarea></div>
               </div>
@@ -1249,6 +1278,91 @@ async function deleteClient(id){
 
 
 
+
+// CIF/FOB E DISTÂNCIA
+const EMPRESA_ENDERECO = 'Rodovia Marechal Rondon SP300 KM 135,5, Porto Feliz, SP, Brasil';
+const EMPRESA_LAT = -23.2157;
+const EMPRESA_LNG = -47.5238;
+
+function onFreteChange(){
+  const frete = document.getElementById('nc-frete')?.value;
+  pvu();
+}
+
+function onEntregaChange(){
+  const tipo = document.getElementById('nc-tipo-entrega')?.value;
+  const boxDist = document.getElementById('box-distancia');
+  
+  if(tipo === 'cliente'){
+    // Try to get client address from loaded client
+    const cidade = document.getElementById('nc-cidade')?.value || '';
+    if(cidade){
+      document.getElementById('nc-local-entrega').value = cidade;
+    }
+    if(boxDist) boxDist.style.display = 'block';
+    calcularDistancia();
+  } else {
+    if(boxDist) boxDist.style.display = 'none';
+  }
+  pvu();
+}
+
+async function calcularDistancia(){
+  const localEntrega = document.getElementById('nc-local-entrega')?.value?.trim();
+  const tipo = document.getElementById('nc-tipo-entrega')?.value;
+  
+  if(!localEntrega || tipo !== 'cliente') return;
+  
+  const resultEl = document.getElementById('distancia-result');
+  const rotaEl = document.getElementById('distancia-rota');
+  if(resultEl) resultEl.textContent = 'Calculando...';
+  if(rotaEl) rotaEl.textContent = '';
+  
+  try {
+    // Step 1: Geocode the destination using Nominatim (OpenStreetMap)
+    const encodedAddr = encodeURIComponent(localEntrega + ', Brasil');
+    const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodedAddr}&format=json&limit=1`, {
+      headers: { 'Accept-Language': 'pt-BR' }
+    });
+    const geoData = await geoRes.json();
+    
+    if(!geoData.length){
+      if(resultEl) resultEl.textContent = 'Endereço não encontrado';
+      return;
+    }
+    
+    const destLat = parseFloat(geoData[0].lat);
+    const destLng = parseFloat(geoData[0].lon);
+    const destName = geoData[0].display_name.split(',').slice(0,3).join(',');
+    
+    // Step 2: Calculate route using OSRM (free routing service)
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${EMPRESA_LNG},${EMPRESA_LAT};${destLng},${destLat}?overview=false`;
+    const osrmRes = await fetch(osrmUrl);
+    const osrmData = await osrmRes.json();
+    
+    if(osrmData.code === 'Ok' && osrmData.routes.length){
+      const distKm = (osrmData.routes[0].distance / 1000).toFixed(1);
+      const durMin = Math.round(osrmData.routes[0].duration / 60);
+      const durHoras = durMin >= 60 ? Math.floor(durMin/60)+'h '+( durMin%60)+'min' : durMin+'min';
+      
+      if(resultEl) resultEl.textContent = `${distKm} km — ${durHoras} de viagem`;
+      if(rotaEl) rotaEl.textContent = `Porto Feliz/SP → ${destName}`;
+    } else {
+      // Fallback: straight-line distance (haversine)
+      const R = 6371;
+      const dLat = (destLat - EMPRESA_LAT) * Math.PI/180;
+      const dLng = (destLng - EMPRESA_LNG) * Math.PI/180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(EMPRESA_LAT*Math.PI/180)*Math.cos(destLat*Math.PI/180)*Math.sin(dLng/2)**2;
+      const distKm = (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1);
+      if(resultEl) resultEl.textContent = `~${distKm} km (linha reta)`;
+      if(rotaEl) rotaEl.textContent = `Porto Feliz/SP → ${destName}`;
+    }
+  } catch(e) {
+    if(resultEl) resultEl.textContent = 'Erro ao calcular distância';
+    console.error('Distância error:', e);
+  }
+}
+
 // BUSCA DE CLIENTE NA PROPOSTA
 function searchClientProposal(q){
   const box = document.getElementById('client-dropdown');
@@ -1292,6 +1406,10 @@ function selectClientProposal(id){
   
   pvu();
   showToast('✓ Cliente ' + c.code + ' carregado!');
+  // Auto-calculate distance if entrega no cliente
+  if(document.getElementById('nc-tipo-entrega')?.value === 'cliente'){
+    calcularDistancia();
+  }
 }
 
 function clearClientSearch(){
