@@ -18,17 +18,26 @@ router.get('/', requireAuth, async (req, res) => {
 
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { name, email, password, color, goal, role } = req.body;
+    const { name, email, password, color, goal } = req.body;
     if (!name || !email || !password)
       return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
     if (password.length < 6)
       return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
     const hash = bcrypt.hashSync(password, 10);
+
+    // Check if inactive user with same email exists - reactivate instead of creating duplicate
+    const existing = await db.prepare('SELECT id FROM users WHERE email = $1').get(email);
+    if (existing) {
+      await db.prepare('UPDATE users SET name=$1, password=$2, color=$3, goal=$4, active=1, photo=NULL WHERE email=$5')
+        .run(name, hash, color || '#C8102E', goal || 40000, email);
+      return res.status(201).json({ id: existing.id, reactivated: true });
+    }
+
     const info = await db.prepare('INSERT INTO users (name, email, password, role, color, goal) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id')
       .run(name, email, hash, 'seller', color || '#C8102E', goal || 40000);
     res.status(201).json({ id: info.lastInsertRowid });
   } catch(e) {
-    res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
+    res.status(409).json({ error: 'Erro ao cadastrar vendedor: ' + e.message });
   }
 });
 
