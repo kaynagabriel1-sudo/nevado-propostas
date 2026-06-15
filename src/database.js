@@ -66,6 +66,14 @@ const SCHEMA = `
     comentario TEXT,
     created_at TEXT DEFAULT to_char(now(), 'YYYY-MM-DD HH24:MI:SS')
   );
+  CREATE TABLE IF NOT EXISTS seller_goals (
+    id SERIAL PRIMARY KEY,
+    seller_id INTEGER NOT NULL,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    goal REAL DEFAULT 0,
+    UNIQUE(seller_id, year, month)
+  );
   CREATE TABLE IF NOT EXISTS email_logs (
     id SERIAL PRIMARY KEY,
     proposal_id TEXT,
@@ -85,6 +93,16 @@ class DB {
     // Add review_token column if it doesn't exist (migration)
     try {
       await pool.query("ALTER TABLE proposals ADD COLUMN IF NOT EXISTS review_token TEXT");
+    } catch(e) {}
+    try {
+      await pool.query(`CREATE TABLE IF NOT EXISTS seller_goals (
+        id SERIAL PRIMARY KEY,
+        seller_id INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        month INTEGER NOT NULL,
+        goal REAL DEFAULT 0,
+        UNIQUE(seller_id, year, month)
+      )`);
     } catch(e) {}
     this._ready = true;
     return this;

@@ -24,11 +24,11 @@ app.use('/api/sellers',   require('./routes/sellers'));
 app.use('/api/reports',   require('./routes/reports'));
 app.use('/api/clients',   require('./routes/clients'));
 app.use('/api/reviews',   require('./routes/reviews'));
+app.use('/api/goals',     require('./routes/goals'));
 
 app.get('/login', (req, res) =>
   res.sendFile(path.join(__dirname, '../public/login.html')));
 
-// Public review page
 app.get('/review/:token', (req, res) =>
   res.sendFile(path.join(__dirname, '../public/review.html')));
 
