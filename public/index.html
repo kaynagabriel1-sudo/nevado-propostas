@@ -1399,6 +1399,108 @@ async function quickWhatsApp(id, clientName, tel){
   }catch(e){ showToast('Erro: '+e.message); }
 }
 
+
+// BUSCA DE CLIENTE NA PROPOSTA
+let clienteCEP = '';
+let clienteEndereco = '';
+
+function searchClientProposal(q){
+  const box = document.getElementById('client-dropdown');
+  if(!q || q.length < 2){ box.style.display='none'; return; }
+  const q2 = q.toLowerCase();
+  const found = clients.filter(c =>
+    c.name.toLowerCase().includes(q2) ||
+    (c.code && c.code.toLowerCase().includes(q2)) ||
+    (c.cpf_cnpj && c.cpf_cnpj.replace(/\D/g,'').includes(q.replace(/\D/g,'')))
+  ).slice(0, 8);
+  if(!found.length){ box.style.display='none'; return; }
+  box.innerHTML = found.map(c => `
+    <div class="client-dropdown-item" onclick="selectClientProposal(${c.id})">
+      <span class="client-code">${c.code||''}</span>
+      <strong>${c.name}</strong>
+      ${c.company ? `<span style="color:#6B7280"> — ${c.company}</span>` : ''}
+      <br>
+      <span style="color:#9CA3AF;font-size:11px">${c.cpf_cnpj||''} ${c.city?'· '+c.city+(c.state?'/'+c.state:''):''}</span>
+    </div>
+  `).join('');
+  box.style.display = 'block';
+}
+
+function selectClientProposal(id){
+  const c = clients.find(x => x.id === id);
+  if(!c) return;
+  clienteCEP = c.cep || '';
+  clienteEndereco = [c.street, c.number, c.neighborhood, c.city, c.state, c.cep].filter(Boolean).join(', ');
+  const set = (id, val) => { const el=document.getElementById(id); if(el) el.value=val||''; };
+  set('nc-name', c.name);
+  set('nc-email', c.email);
+  set('nc-tel', c.phone);
+  set('nc-cnpj', c.cpf_cnpj);
+  set('nc-cidade', c.city && c.state ? c.city+' / '+c.state : c.city||'');
+  const localEntrega = clienteCEP ? clienteCEP : (c.city && c.state ? c.city+'/'+c.state : c.city||'');
+  const nc_local = document.getElementById('nc-local-entrega');
+  if(nc_local) nc_local.value = clienteEndereco || localEntrega;
+  document.getElementById('client-search').value = c.code + ' — ' + c.name;
+  document.getElementById('client-dropdown').style.display = 'none';
+  pvu();
+  showToast('✓ Cliente ' + c.code + ' carregado!');
+  if(document.getElementById('nc-tipo-entrega')?.value === 'cliente') calcularDistancia();
+}
+
+function clearClientSearch(){
+  document.getElementById('client-search').value = '';
+  document.getElementById('client-dropdown').style.display = 'none';
+}
+
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.client-search-box')){
+    const box = document.getElementById('client-dropdown');
+    if(box) box.style.display = 'none';
+  }
+});
+
+// WHATSAPP
+function buildWhatsMsg(name, proposalId, items, total, pagto, prazo, validity, pdfLink){
+  const itens = items.map(i=>`• ${i.desc} x${i.qty} = R$ ${(i.qty*i.price).toLocaleString('pt-BR',{minimumFractionDigits:2})}`).join('\n');
+  const valStr = validity ? new Date(validity).toLocaleDateString('pt-BR') : '—';
+  const pdfLine = pdfLink ? `\n📄 *PDF da proposta:* ${pdfLink}` : '';
+  return `Olá ${name}! 😊\n\nSegue nossa *Proposta Comercial ${proposalId}* — Valle Nevado Chocolates 🍫\n\n*Produtos:*\n${itens}\n\n*Total: R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})}*\n${pagto?'*Pagamento:* '+pagto:''}\n${prazo?'*Prazo de entrega:* '+prazo:''}\n${validity?'*Validade:* '+valStr:''}${pdfLine}\n\nEm caso de dúvidas, estamos à disposição!\n📞 (15) 3261-3318\n🌐 www.chocolatesnevado.com.br`;
+}
+
+function doWhatsApp(){
+  const name = document.getElementById('nc-name')?.value||'';
+  const tel = document.getElementById('nc-tel')?.value||'';
+  const pagto = document.getElementById('nc-pagto')?.value||'';
+  const prazo = document.getElementById('nc-prazo')?.value||'';
+  const validity = document.getElementById('nc-validity')?.value||'';
+  if(!tel){ showToast('⚠ Preencha o telefone do cliente'); return; }
+  const items = [];
+  document.querySelectorAll('.irow').forEach(r=>{
+    const ins = r.querySelectorAll('input');
+    const desc = ins[1]?.value; const qty = parseFloat(ins[2]?.value)||0; const price = parseFloat(ins[5]?.value)||0;
+    if(desc&&qty) items.push({desc,qty,price});
+  });
+  const total = items.reduce((s,i)=>s+i.qty*i.price,0);
+  const msg = buildWhatsMsg(name, 'Nova Proposta', items, total, pagto, prazo, validity, null);
+  const phone = tel.replace(/\D/g,'');
+  const phoneFormatted = phone.startsWith('55') ? phone : '55'+phone;
+  window.open('https://wa.me/'+phoneFormatted+'?text='+encodeURIComponent(msg), '_blank');
+}
+
+async function quickWhatsApp(id, clientName, tel){
+  try{
+    const p = await api('/api/proposals/'+id);
+    const items = p.items||[];
+    const baseUrl = window.location.origin;
+    const pdfLink = baseUrl+'/api/proposals/'+p.id+'/pdf';
+    const msg = buildWhatsMsg(p.client_name, p.id, items, p.value, p.pagto, p.prazo, p.validity, pdfLink);
+    const phone = (p.client_tel||tel||'').replace(/\D/g,'');
+    if(!phone){ showToast('⚠ Cliente sem telefone cadastrado'); return; }
+    const phoneFormatted = phone.startsWith('55') ? phone : '55'+phone;
+    window.open('https://wa.me/'+phoneFormatted+'?text='+encodeURIComponent(msg), '_blank');
+  }catch(e){ showToast('Erro: '+e.message); }
+}
+
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3200);}
 </script>
 </body>
